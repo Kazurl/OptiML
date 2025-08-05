@@ -16,10 +16,6 @@ params = {
 
     # Binomial Model
     PARAMETERS.TIME_STEPS.value: 1000,
-
-    # Classic/ Simple Binomial Model
-    PARAMETERS.UP_FACTOR.value: np.exp(0.2 * np.sqrt(1)),
-    PARAMETERS.DOWN_FACTOR.value: np.exp(-0.2 * np.sqrt(1)) 
 }
 
 # Known analytical solutions for Black-Scholes (rounded for demonstration)

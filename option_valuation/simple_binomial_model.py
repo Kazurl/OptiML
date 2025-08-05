@@ -14,15 +14,16 @@ class SimpleBinomialModel(OptionValuationModel):
                 2. strike price - Strike price/ exercise price
                 3. interest_rate - Risk free interest rate
                 4. dividend_yeild - Stock dividend yield
-                5. up_factor - Up factor for the upper expiry price consideration
-                6. down_factor - Down factor for the lower expiry price consideration
+                5. volatility - Volatlity of stock
         """
         super().__init__(option_type, parameters)
         self.S = self.parameters[PARAMETERS.STOCK_PRICE.value]
         self.X = self.parameters[PARAMETERS.STRIKE_PRICE.value]
         self.r = self.parameters[PARAMETERS.INTEREST_RATE.value]
-        self.u = self.parameters[PARAMETERS.UP_FACTOR.value]
-        self.d = self.parameters[PARAMETERS.DOWN_FACTOR.value]
+
+        # Calculate up and down factors
+        self.u = np.exp(self.parameters[PARAMETERS.VOLATILITY.value])
+        self.d = np.exp(-self.parameters[PARAMETERS.VOLATILITY.value])
 
         # classic risk neutral probability
         self.p = (1 + self.r - self.d)/ (self.u - self.d)
