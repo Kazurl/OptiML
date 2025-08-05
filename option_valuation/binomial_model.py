@@ -13,10 +13,10 @@ class BinomialModel(OptionValuationModel):
                 1. stock_price - Underlying stock price
                 2. strike_price - Strike/ Exercise price
                 3. days_to_expiry - Days to expiry
-                4. interest_rate - risk free interest rate
-                5. volatility - annualized volatility of stock in decimal (risk neutral probability)
-                6. dividend_yeild - stock dividend yield
-                7. time_steps - number of binomial steps, default 100
+                4. interest_rate - Risk free interest rate
+                5. volatility - Annualized volatility of stock in decimal (risk neutral probability)
+                6. dividend_yeild - Stock dividend yield
+                7. time_steps - Number of binomial steps, default 100
         """
         super().__init__(option_type, parameters)
         self.S = self.parameters[PARAMETERS.STOCK_PRICE.value]
@@ -25,7 +25,7 @@ class BinomialModel(OptionValuationModel):
         self.r = self.parameters[PARAMETERS.INTEREST_RATE.value]
         self.sigma = self.parameters[PARAMETERS.VOLATILITY.value]
         self.q = self.parameters.get(PARAMETERS.DIVIDEND_YIELD.value, 0.0)
-        self.N = self.parameters.get("time_steps", 100)
+        self.N = self.parameters.get(PARAMETERS.TIME_STEPS.value, 100)
 
         self.delta_t = self.T/ self.N
 

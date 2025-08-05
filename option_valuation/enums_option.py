@@ -16,5 +16,7 @@ class PARAMETERS(Enum):
     DAYS_TO_EXPIRY = "days_to_maturity"
     DIVIDEND_YIELD = "dividend_yield"
     TIME_STEPS = "time_steps"
-    MAX_END_PRICE = "max_end_price"
-    MIN_END_PRICE = "min_end_price"
+
+    # Only for simple binomial calculation
+    UP_FACTOR = "up_factor"
+    DOWN_FACTOR = "down_factor"

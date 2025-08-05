@@ -12,9 +12,9 @@ class BlackScholesModel(OptionValuationModel):
                 1. stock_price - Underlying stock price
                 2. strike_price - Strike/ Exercise price
                 3. days_to_expiry - Days to expiry
-                4. interest_rate - risk free interest rate
-                5. volatility - volatility of stock
-                6. dividend_yeild - stock dividend yield 
+                4. interest_rate - Risk free interest rate
+                5. volatility - Volatility of stock
+                6. dividend_yeild - Stock dividend yield 
         """
         super().__init__(option_type, parameters)
         self.S = self.parameters[PARAMETERS.STOCK_PRICE.value]
