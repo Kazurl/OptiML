@@ -8,21 +8,25 @@
     1a. Database Schema [PENDING]
         - tables for CalculationInput and CalculationOutput
 
-2. Option Valuation [PENDING]
-    2a. Base Util [PENDING]
+2. Option Valuation [COMPLETED]
+    2a. Base Util [COMPLETED]
         - Idea: common implementation for code reusability and maintainability
         - Implementation: 
         - Future Improvement:
 
-        2ai. Specifics [PENDING]
+        2ai. Specifics [COMPLETED]
             - Base abstract class/ interface for child classes to implement or inherit
 
-    2b. Binomial Model [PENDING]
+    2b. Binomial Model [COMPLETED]
         - Idea: Implement specific logic for Binomial model's formula
         - Implementation: 
-        - Future Improvement:
-    2c. Black Scholes Model [PENDING]
+        - Future Improvement: To improve on backwards induction to be single pass
+    2c. Black Scholes Model [COMPLETED]
         - Idea: Implement specific logic for Black Scholes model's formula
+        - Implementation: 
+        - Future Improvement:
+    2d. Classic Binomial Model [COMPLETED]
+        - Idea: Implement specific logic for lazy Binomial model's calc
         - Implementation: 
         - Future Improvement:
 
@@ -33,6 +37,8 @@
 
     3a. Unit Test [PENDING]
     3b. White box Testing [PENDING]
+        3bi. Vanilla testing [COMPLETED]
+        3bii. Dividend Testing [PENDING]
     3c. Back Testing against Alpaca api [PENDING]
 
 4. Streamlit App [PENDING]
