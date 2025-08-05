@@ -4,7 +4,7 @@ from scipy.stats import norm
 from .base_option import OptionValuationModel
 from .enums_option import PARAMETERS
 
-class BinomailModel(OptionValuationModel):
+class BinomialModel(OptionValuationModel):
     def __init__(self, option_type, parameters):
         """
             Initialize parameters used to calculate call and put prices.
@@ -21,7 +21,7 @@ class BinomailModel(OptionValuationModel):
         super().__init__(option_type, parameters)
         self.S = self.parameters[PARAMETERS.STOCK_PRICE.value]
         self.X = self.parameters[PARAMETERS.STRIKE_PRICE.value]
-        self.T = self.parameters[PARAMETERS.TIME_TO_EXPIRY.value] / 365
+        self.T = self.parameters[PARAMETERS.DAYS_TO_EXPIRY.value] / 365
         self.r = self.parameters[PARAMETERS.INTEREST_RATE.value]
         self.sigma = self.parameters[PARAMETERS.VOLATILITY.value]
         self.q = self.parameters.get(PARAMETERS.DIVIDEND_YIELD.value, 0.0)
@@ -54,7 +54,7 @@ class BinomailModel(OptionValuationModel):
         """
         for step in range(self.N-1, -1, -1):
             for i in range(step+1):  # each step of the way
-                option_values[i] = np.exp(-self.r * self.delta_t) * [self.p * option_values[i+1] + (1-self.p) * option_values[i]]
+                option_values[i] = np.exp(-self.r * self.delta_t) * (self.p * option_values[i+1] + (1-self.p) * option_values[i])
 
         return option_values[0]
     
@@ -76,6 +76,6 @@ class BinomailModel(OptionValuationModel):
         """
         for step in range(self.N-1, -1, -1):
             for i in range(step+1):  # each step of the way
-                option_values[i] = np.exp(-self.r * self.delta_t) * [self.p * option_values[i+1] + (1-self.p) * option_values[i]]
+                option_values[i] = np.exp(-self.r * self.delta_t) * (self.p * option_values[i+1] + (1-self.p) * option_values[i])
 
         return option_values[0]
