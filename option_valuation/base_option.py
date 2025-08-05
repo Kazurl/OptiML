@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from .enums_option import OPTION_TYPE
+from utils.enums_option import OPTION_TYPE
 
 class OptionValuationModel(ABC):
     def __init__(
@@ -8,6 +8,7 @@ class OptionValuationModel(ABC):
             option_type: OPTION_TYPE,
             parameters: dict
     ):
+        
         self.option_type = option_type
         self.parameters = parameters
     

@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import norm
 
 from .base_option import OptionValuationModel
-from .enums_option import PARAMETERS
+from utils.enums_option import PARAMETERS
 
 class BlackScholesModel(OptionValuationModel):
     def __init__(self, option_type, parameters, dividend_yield=0.0):

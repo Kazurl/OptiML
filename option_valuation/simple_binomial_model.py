@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import norm
 
 from .base_option import OptionValuationModel
-from .enums_option import PARAMETERS
+from utils.enums_option import PARAMETERS
 
 class SimpleBinomialModel(OptionValuationModel):
     def __init__(self, option_type, parameters):
@@ -11,6 +11,7 @@ class SimpleBinomialModel(OptionValuationModel):
             Utilised the basic Risk Neutral Shortcut with no time step consideration for calculations.
             Parameters:
                 1. stock_price - Stock price currently
+                2. strike price - Strike price/ exercise price
                 3. interest_rate - Risk free interest rate
                 4. dividend_yeild - Stock dividend yield
                 5. up_factor - Up factor for the upper expiry price consideration

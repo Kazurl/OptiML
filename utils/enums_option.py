@@ -3,6 +3,7 @@ from enum import Enum
 class OPTION_MODEL(Enum):
     BINOMIAL_MODEL = "binomial model"
     BLACK_SCHOLES_MODEL = "black scholes model"
+    SIMPLE_BINOMIAL_MODEL = "simple binomial model"
 
 class OPTION_TYPE(Enum):
     CALL = "call option"

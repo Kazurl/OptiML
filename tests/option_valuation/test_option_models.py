@@ -2,7 +2,7 @@ import numpy as np
 
 from option_valuation.black_scholes_model import BlackScholesModel
 from option_valuation.binomial_model import BinomialModel
-from option_valuation.enums_option import OPTION_TYPE, PARAMETERS
+from utils.enums_option import OPTION_TYPE, PARAMETERS
 from option_valuation.simple_binomial_model import SimpleBinomialModel
 
 # Known parameters (classic Black-Scholes test case with no dividends)
