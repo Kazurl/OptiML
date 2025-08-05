@@ -29,8 +29,6 @@ def show_black_scholes_tab():
             index=None,
             key="bsm_option_type"
         )
-        if bsm_option_type == "call option":
-            st.toast("CALL OPTION!", icon=":material/warning:")
         
         # Get Parameters=
         st.write("Enter your variables")
@@ -55,7 +53,7 @@ def show_black_scholes_tab():
         days_to_expiry_selection = days_to_expiry_selection if days_to_expiry_selection else ("num", ":material/keyboard_keys:")
         if days_to_expiry_selection[0] == "num":
             BSM_params[PARAMETERS.DAYS_TO_EXPIRY.value] = st.number_input(
-                "",
+                "days_to_expiry",
                 label_visibility="hidden",
                 min_value=1,
                 max_value=3650,
@@ -64,14 +62,14 @@ def show_black_scholes_tab():
         elif days_to_expiry_selection[0] == "date":
             currDate = datetime.date.today()
             BSM_params[PARAMETERS.DAYS_TO_EXPIRY.value] = (st.date_input(
-                "",
+                "days_to_expiry",
                 label_visibility="hidden",
                 min_value=datetime.date.today() + datetime.timedelta(days=1),
                 key="BSM_T_date"
             ) - currDate).days
         else:
             BSM_params[PARAMETERS.DAYS_TO_EXPIRY.value] = st.slider(
-                "",
+                "days_to_expiry",
                 label_visibility="hidden",
                 min_value=1,
                 max_value=3650,

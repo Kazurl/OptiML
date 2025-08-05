@@ -54,7 +54,7 @@ def show_binomial_tab():
         days_to_expiry_selection = days_to_expiry_selection if days_to_expiry_selection else ("num", ":material/keyboard_keys:")
         if days_to_expiry_selection[0] == "num":
             BM_params[PARAMETERS.DAYS_TO_EXPIRY.value] = st.number_input(
-                "",
+                "days_to_expiry",
                 label_visibility="hidden",
                 min_value=1,
                 max_value=3650,
@@ -63,14 +63,14 @@ def show_binomial_tab():
         elif days_to_expiry_selection[0] == "date":
             currDate = datetime.date.today()
             BM_params[PARAMETERS.DAYS_TO_EXPIRY.value] = (st.date_input(
-                "",
+                "days_to_expiry",
                 label_visibility="hidden",
                 min_value=datetime.date.today() + datetime.timedelta(days=1),
                 key="BM_T_date"
             ) - currDate).days
         else:
             BM_params[PARAMETERS.DAYS_TO_EXPIRY.value] = st.slider(
-                "",
+                "days_to_expiry",
                 label_visibility="hidden",
                 min_value=1,
                 max_value=3650,
