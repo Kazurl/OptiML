@@ -52,3 +52,11 @@
     - Kubernetes resources:
         - kubectl delete -f k8s/deployment.yaml
         - kubectl delete -f k8s/service.yaml
+    - Check if all servies stopped:
+        - minikube status
+            - should say "Profile 'minikube' not found
+        - docker ps
+            - this should not show our docker image/ container running. if it is:
+                - docker stop <container-id>
+                - docker rm <container-id>
+                - docker rmi <image-id>
