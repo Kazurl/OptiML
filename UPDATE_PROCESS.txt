@@ -44,3 +44,11 @@
         - get more details via:
             - kubectl describe pod <pod-name>
             - check for Events if (Failed to pull image/ ErrImagePull)
+
+6. Environment Cleanup on Exit
+    - Minikube:
+        - minikube stop
+        - minikube delete
+    - Kubernetes resources:
+        - kubectl delete -f k8s/deployment.yaml
+        - kubectl delete -f k8s/service.yaml
