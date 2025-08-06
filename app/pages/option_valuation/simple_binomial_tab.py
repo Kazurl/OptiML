@@ -94,6 +94,7 @@ def show_simple_binomial_tab():
                 OPTION_MODEL.SIMPLE_BINOMIAL_MODEL.value,
                 [curStockPrice*0.5, curStockPrice*1.5, 100],
                 SBM_params[PARAMETERS.STRIKE_PRICE.value],
+                T=None,
                 r=SBM_params[PARAMETERS.INTEREST_RATE.value],
                 sigma=SBM_params[PARAMETERS.VOLATILITY.value],
                 q=SBM_params[PARAMETERS.DIVIDEND_YIELD.value],

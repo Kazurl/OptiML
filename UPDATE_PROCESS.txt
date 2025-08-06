@@ -1,0 +1,46 @@
+1. Update project source code:
+    - Make code changes locally
+    - Test app locally via "streamlit run streamlit_app.py" within environment
+
+2. Commit and push to Github Repo
+    - git add .
+    - git commit -m "Title for update"
+    - git push origin main
+
+3. Build and push docker image
+    - Log into docker
+        - docker login
+    - Build a new Docker image with version tag (e.g. New Features/ Bug fixes)
+        - docker build -t <dockerhub-username>/<repository-name>:vX.Y .
+    - Push new image to Docker Hub
+        - docker push <dockerhub-username>/<repository-name>:vX.Y
+
+4. Update Kubernetes Deployment
+    - Edit Kubernetes deployment YAML (./k8s/deployment.yaml) to reflect new image tag if using versioned tag
+        - spec:
+            containers:
+                - name: optiml-app
+                    image: <dockerhub-username>/<repository-name>:vX.Y
+    - Ensure Minikube started
+        - minikube start
+        - kubectl get nodes (to ensure connection secured)
+    - Apply updated manifest to Kubernetes cluster
+        - if used new version tag:
+            - kubectl apply -f k8s/deployment.yaml
+        - if use latest tag and did not change yaml:
+            - kubectl rollout restart deployment optiml-app
+    - Ensure pods running with updated image:
+        - kubectl get pods
+        - kubectl describe pod <pod-name>
+    - Access app via:
+        - minikube service optiml-app-service
+
+5. Troubleshooting Kubernetes Deployment
+    - If not running, check:
+        - network issue with docker:
+            - docker pull <dockerhub-username>/<repository-name>:vX.Y
+        - type/ wrong tag:
+            - Verify image/tag with yaml matching with Docker Hub's (spelling, caps, tag)
+        - get more details via:
+            - kubectl describe pod <pod-name>
+            - check for Events if (Failed to pull image/ ErrImagePull)

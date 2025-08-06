@@ -1,0 +1,32 @@
+# Python related
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.env
+venv/
+.venv/
+venv_0.1/
+
+# vscode
+.vscode/
+
+# Docker
+docker-compose.override.yml
+
+# jupyter notebooks
+.ipynb_checkpoints
+
+# Logs and temps
+*.log
+*.tmp
+
+# Sys files
+.DS_Store
+Thumbs.db
+
+# Extras
+tasks.txt

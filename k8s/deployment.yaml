@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: optiml-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: optiml-app
+  template:
+    metadata:
+      labels:
+        app: optiml-app
+    spec:
+      containers:
+        - name: optiml-app
+          image: bzh827/optiml:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8501
