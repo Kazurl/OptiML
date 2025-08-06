@@ -1,8 +1,9 @@
-import datetime
 import streamlit as st
 
+from app.components.plot_payoff_profit import show_plot_payoff_profit
+from app.components.plot_premium_price import show_plot_premium_price
 from option_valuation.simple_binomial_model import SimpleBinomialModel
-from utils.enums_option import PARAMETERS, OPTION_TYPE
+from utils.enums_option import PARAMETERS, OPTION_MODEL, OPTION_TYPE
 
 ## ----------------------------------------------
 # Declarations
@@ -75,4 +76,26 @@ def show_simple_binomial_tab():
     with rightCol:
         st.write(SBM_params)
         if SBM_output:
-            st.write(SBM_output)
+            st.write({"Premium": SBM_output})
+            curStockPrice = SBM_params[PARAMETERS.STOCK_PRICE.value]
+
+            # plot payout against price
+            fig_payoutprice = show_plot_payoff_profit(
+                sbm_option_type,
+                SBM_params[PARAMETERS.STRIKE_PRICE.value],
+                SBM_output,
+                [curStockPrice*0.5, curStockPrice*1.5, 100]
+            )
+            st.pyplot(fig_payoutprice)
+
+            # plot premium against price
+            fig_premiumprice = show_plot_premium_price(
+                sbm_option_type,
+                OPTION_MODEL.SIMPLE_BINOMIAL_MODEL.value,
+                [curStockPrice*0.5, curStockPrice*1.5, 100],
+                SBM_params[PARAMETERS.STRIKE_PRICE.value],
+                r=SBM_params[PARAMETERS.INTEREST_RATE.value],
+                sigma=SBM_params[PARAMETERS.VOLATILITY.value],
+                q=SBM_params[PARAMETERS.DIVIDEND_YIELD.value],
+            )
+            st.pyplot(fig_premiumprice)

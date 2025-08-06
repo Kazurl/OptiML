@@ -37,7 +37,7 @@ class BlackScholesModel(OptionValuationModel):
         return price
     
     def _calculate_d1_d2(self):
-        d1 = (np.log(self.S/self.X) + (self.r - self.q + (0.5 * (self.sigma**2)))/ self.T)/ (self.sigma * np.sqrt(self.T))
+        d1 = (np.log(self.S/self.X) + (self.r - self.q + (0.5 * self.sigma**2)) * self.T)/ (self.sigma * np.sqrt(self.T))
         d2 = d1 - self.sigma * np.sqrt(self.T)
 
         return [d1, d2]

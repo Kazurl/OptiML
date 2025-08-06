@@ -12,7 +12,7 @@ st.divider()
 # Choosing valuation method
 st.write("Choose an option valuation model:")
 BSM_tab, BM_tab, SBM_tab = st.tabs(
-    [ "Black Scholes Model", "Binomial Model", "Classic Binomial Model"]
+    [ "Black Scholes Model", "Binomial Model", "Classic Binomial Model" ]
 )
 
 # BSM tab

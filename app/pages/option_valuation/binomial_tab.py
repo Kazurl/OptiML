@@ -1,9 +1,10 @@
 import datetime
-import itertools
 import streamlit as st
 
+from app.components.plot_payoff_profit import show_plot_payoff_profit
+from app.components.plot_premium_price import show_plot_premium_price
 from option_valuation.binomial_model import BinomialModel
-from utils.enums_option import PARAMETERS, OPTION_TYPE
+from utils.enums_option import PARAMETERS, OPTION_MODEL, OPTION_TYPE
 
 ## ----------------------------------------------
 # Declarations
@@ -103,6 +104,7 @@ def show_binomial_tab():
             value=100,
             key="BM_N"
         )
+        st.caption("Higher steps result in longer loads")
         # Output the values
         if st.button(f"Calculate {bm_option_type} Premium", key="BM_output"):
             if any(BM_params[k] is None for k in BM_params.keys()):
@@ -118,4 +120,28 @@ def show_binomial_tab():
     with rightCol:
         st.write(BM_params)
         if BM_output:
-            st.write(BM_output)
+            st.write({"Premium": BM_output})
+            curStockPrice = BM_params[PARAMETERS.STOCK_PRICE.value]
+
+            # plot payout against price
+            fig_payoutprice = show_plot_payoff_profit(
+                bm_option_type,
+                BM_params[PARAMETERS.STRIKE_PRICE.value],
+                BM_output,
+                [curStockPrice*0.5, curStockPrice*1.5, 100]
+            )
+            st.pyplot(fig_payoutprice)
+
+            # plot premium against price
+            fig_premiumprice = show_plot_premium_price(
+                bm_option_type,
+                OPTION_MODEL.BINOMIAL_MODEL.value,
+                [curStockPrice*0.5, curStockPrice*1.5, 100],
+                BM_params[PARAMETERS.STRIKE_PRICE.value],
+                BM_params[PARAMETERS.DAYS_TO_EXPIRY.value],
+                BM_params[PARAMETERS.INTEREST_RATE.value],
+                BM_params[PARAMETERS.VOLATILITY.value],
+                BM_params[PARAMETERS.DIVIDEND_YIELD.value],
+                N=BM_params[PARAMETERS.TIME_STEPS.value]
+            )
+            st.pyplot(fig_premiumprice)

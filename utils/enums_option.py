@@ -14,6 +14,6 @@ class PARAMETERS(Enum):
     STRIKE_PRICE = "strike_price"
     INTEREST_RATE = "interest_rate"
     VOLATILITY = "volatility"
-    DAYS_TO_EXPIRY = "days_to_maturity"
+    DAYS_TO_EXPIRY = "days_to_expiry"
     DIVIDEND_YIELD = "dividend_yield"
     TIME_STEPS = "time_steps"

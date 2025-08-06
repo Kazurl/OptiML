@@ -1,9 +1,11 @@
 import datetime
-import itertools
 import streamlit as st
+import numpy as np
 
+from app.components.plot_payoff_profit import show_plot_payoff_profit
+from app.components.plot_premium_price import show_plot_premium_price
 from option_valuation.black_scholes_model import BlackScholesModel
-from utils.enums_option import PARAMETERS, OPTION_TYPE
+from utils.enums_option import PARAMETERS, OPTION_MODEL, OPTION_TYPE
 
 ## ----------------------------------------------
 # Declarations
@@ -111,4 +113,27 @@ def show_black_scholes_tab():
     with rightCol:
         st.write(BSM_params)
         if BSM_output:
-            st.write(BSM_output)
+            st.write({"Premium": BSM_output})
+            curStockPrice = BSM_params[PARAMETERS.STOCK_PRICE.value]
+
+            # plot payout against price
+            fig_payoutprice = show_plot_payoff_profit(
+                bsm_option_type,
+                BSM_params[PARAMETERS.STRIKE_PRICE.value],
+                BSM_output,
+                [curStockPrice*0.5, curStockPrice*1.5, 100]
+            )
+            st.pyplot(fig_payoutprice)
+
+            # plot premium against price
+            fig_premiumprice = show_plot_premium_price(
+                bsm_option_type,
+                OPTION_MODEL.BLACK_SCHOLES_MODEL.value,
+                [curStockPrice*0.5, curStockPrice*1.5, 100],
+                BSM_params[PARAMETERS.STRIKE_PRICE.value],
+                BSM_params[PARAMETERS.DAYS_TO_EXPIRY.value],
+                BSM_params[PARAMETERS.INTEREST_RATE.value],
+                BSM_params[PARAMETERS.VOLATILITY.value],
+                BSM_params[PARAMETERS.DIVIDEND_YIELD.value],
+            )
+            st.pyplot(fig_premiumprice)
