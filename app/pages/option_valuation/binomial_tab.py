@@ -3,6 +3,7 @@ import streamlit as st
 
 from app.components.plot_payoff_profit import show_plot_payoff_profit
 from app.components.plot_premium_price import show_plot_premium_price
+from db.sqlite.db_utils import insert_run_to_db
 from option_valuation.binomial_model import BinomialModel
 from utils.enums_option import PARAMETERS, OPTION_MODEL, OPTION_TYPE
 
@@ -115,6 +116,7 @@ def show_binomial_tab():
                 BM_output = BM.calculate_price()
                 if BM_output:
                     with st.spinner("Calculating..."):
+                        insert_run_to_db(OPTION_MODEL.BINOMIAL_MODEL.value, BM_params, BM_output)
                         st.write(f"{bm_option_type.split(" ")[0].capitalize()} Price: {BM_output:.4f}")
 
     with rightCol:

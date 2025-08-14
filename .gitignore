@@ -11,6 +11,9 @@ venv/
 .venv/
 venv_0.1/
 
+# db
+*.db
+
 # vscode
 .vscode/
 

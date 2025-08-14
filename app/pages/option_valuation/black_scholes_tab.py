@@ -4,6 +4,7 @@ import numpy as np
 
 from app.components.plot_payoff_profit import show_plot_payoff_profit
 from app.components.plot_premium_price import show_plot_premium_price
+from db.sqlite.db_utils import insert_run_to_db
 from option_valuation.black_scholes_model import BlackScholesModel
 from utils.enums_option import PARAMETERS, OPTION_MODEL, OPTION_TYPE
 
@@ -108,6 +109,7 @@ def show_black_scholes_tab():
                 BSM_output = BSM.calculate_price()
                 if BSM_output:
                     with st.spinner("Calculating..."):
+                        insert_run_to_db(OPTION_MODEL.BLACK_SCHOLES_MODEL.value, BSM_params, BSM_output)
                         st.write(f"{bsm_option_type.split(" ")[0].capitalize()} Price: {BSM_output:.4f}")
 
     with rightCol:

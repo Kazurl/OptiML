@@ -5,9 +5,17 @@ class OPTION_MODEL(Enum):
     BLACK_SCHOLES_MODEL = "black scholes model"
     SIMPLE_BINOMIAL_MODEL = "simple binomial model"
 
+
+class OPTION_MODEL_ABBR(Enum):
+    BINOMIAL_MODEL = "BM"
+    BLACK_SCHOLES_MODEL = "BSM"
+    SIMPLE_BINOMIAL_MODEL = "SBM"
+
+
 class OPTION_TYPE(Enum):
     CALL = "call option"
     PUT = "put option"
+
 
 class PARAMETERS(Enum):
     STOCK_PRICE = "stock_price"

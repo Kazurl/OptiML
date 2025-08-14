@@ -2,6 +2,7 @@ import streamlit as st
 
 from app.components.plot_payoff_profit import show_plot_payoff_profit
 from app.components.plot_premium_price import show_plot_premium_price
+from db.sqlite.db_utils import insert_run_to_db
 from option_valuation.simple_binomial_model import SimpleBinomialModel
 from utils.enums_option import PARAMETERS, OPTION_MODEL, OPTION_TYPE
 
@@ -71,6 +72,7 @@ def show_simple_binomial_tab():
                 SBM_output = SBM.calculate_price()
                 if SBM_output:
                     with st.spinner("Calculating..."):
+                        insert_run_to_db(OPTION_MODEL.SIMPLE_BINOMIAL_MODEL.value, SBM_params, SBM_output)
                         st.write(f"{sbm_option_type.capitalize()} Price: {SBM_output:.4f}")
 
     with rightCol:
