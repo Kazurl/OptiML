@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package stockstream;
+
+// Request to sub to specific symbol(s)
+message SubscribeRequest {
+    repeated string symbols = 1;
+}
+
+// Response msg streaming stock prices
+message StockPriceUpdate {
+    string symbol = 1;
+    double price = 2;
+    int64 timestamp = 3;
+}
+
+// Server side streaming rpc to sub to stock updates (rpc func api)
+service StockDataStreamer {
+    rpc SubscribeSymbols(SubscribeRequest) returns (stream StockPriceUpdate);
+}

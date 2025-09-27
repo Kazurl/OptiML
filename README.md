@@ -107,7 +107,7 @@ _Do this when you want to stop running the app_
 > kubectl delete -f k8s/service.yaml
 > ```
 
-7. **Updating the App*
+7. **Updating the App**
 > _Skip this if plainly running app_
 After code changes:
 > 1. Rebuild and push Docker image

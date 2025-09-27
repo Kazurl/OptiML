@@ -5,6 +5,13 @@ from app.pages.option_valuation.binomial_tab import show_binomial_tab
 from app.pages.option_valuation.black_scholes_tab import show_black_scholes_tab
 from app.pages.option_valuation.simple_binomial_tab import show_simple_binomial_tab
 from db.sqlite.db_utils import init_db
+from middleware.stockstream.stockstream_middleware import start_stream
+
+
+## ----------------------------------------------
+# Middleware
+start_stream()
+
 
 ## ----------------------------------------------
 # Initialize db
