@@ -1,0 +1,46 @@
+.compact-table {
+    background: #191b1f;
+    border-radius: 0.45rem;
+    padding: 0.9rem 0.65rem;
+    margin-top: 0.5rem;
+    font-family: 'Inter', 'Segoe UI', 'Arial', sans-serif;
+    font-size: 0.98rem;
+    color: #e9f1fa;
+}
+.compact-header {
+    font-size: 1.17rem;
+    color: #fff;
+    font-weight: 700;
+    margin-bottom: 0.18rem;
+    letter-spacing: 0.02em;
+}
+.compact-subheader {
+    font-size: 0.93rem;
+    font-weight: 500;
+    color: #80cbc4;
+    margin-bottom: 0.13rem;
+    margin-top: 0.11rem;
+}
+.compact-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.21rem;
+    line-height: 1.44em;
+}
+.compact-label {
+    color: #aeb3bc;
+    font-weight: 500;
+    font-size: 0.92rem;
+}
+.compact-value {
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.94rem;
+}
+.compact-mainprice {
+    font-size: 1.3rem;
+    color: #25be77;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    padding-bottom: 0.17rem;
+}

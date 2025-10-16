@@ -1,9 +1,8 @@
 import streamlit as st
 
-from app.pages.db_viewer.db_viewer import show_database
-from app.pages.option_valuation.binomial_tab import show_binomial_tab
-from app.pages.option_valuation.black_scholes_tab import show_black_scholes_tab
-from app.pages.option_valuation.simple_binomial_tab import show_simple_binomial_tab
+from app.pages.crypto_viewer.crypto_page import show_crypto_page
+from app.pages.equities_viewer.show_equities_page import show_equities_page
+from app.pages.option_valuation.show_options_modelling_page import show_options_modelling_page
 from db.sqlite.db_utils import init_db
 
 ## ----------------------------------------------
@@ -13,26 +12,15 @@ init_db()
 
 ## ----------------------------------------------
 # Start of UI
-st.title("OptiML Option Valuation")
+st.title("***OptiML***")
 st.divider()
 
-# Choosing valuation method
-st.write("Choose an option valuation model:")
-BSM_tab, BM_tab, SBM_tab, db_tab = st.tabs(
-    [ "Black Scholes Model", "Binomial Model", "Classic Binomial Model", "Database Viewer" ]
+# --- Sidebar Navigation ---
+pg = st.navigation(
+    [
+        st.Page(show_options_modelling_page, title="Options Valuation"),
+        st.Page(show_equities_page, title="Equities Trading"),
+        st.Page(show_crypto_page, title="Cryptocurrency Trading"),
+    ]
 )
-
-# BSM tab
-with BSM_tab:
-    show_black_scholes_tab()
-# BM tab
-with BM_tab:
-    show_binomial_tab()
-
-# BSM tab
-with SBM_tab:
-    show_simple_binomial_tab()
-
-# DB tab
-with db_tab:
-    show_database()
+pg.run()
