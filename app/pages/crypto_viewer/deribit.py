@@ -11,6 +11,13 @@ import numpy as np
 import certifi
 import os, csv, io
 
+from utils.enums_option import (
+    PRETTY_OPTION_TYPE, PRETTY_PARAMETERS, PRETTY_RUNS_TYPE
+)
+from utils.string_formatter import (
+    fnum, pct, fpct,
+)
+
 load_dotenv()
 
 # Force requests to a working CA bundle (Windows-safe)
@@ -461,7 +468,7 @@ def get_instrument(instrument_name: str) -> dict | None:
         logging.warning(f"get_instrument {instrument_name} failed: {e}")
         return None
 
-# # ---------- PRICE SELECTION HELPERS (MID → LAST(if fresh) → MARK) ----------
+# ---------- PRICE SELECTION HELPERS (MID → LAST(if fresh) → MARK) ----------
 STALE_LAST_SECONDS = 300  # 5 minutes
 
 def _get_last_trade_ts_ms(inst_name: str) -> int | None:
@@ -1021,6 +1028,44 @@ def _find_atm_instruments_all_expiries(base: str, opt_type: str) -> tuple[list[d
         })
     return rows, spot
 
+# async def _runs_common(update: Update, context: ContextTypes.DEFAULT_TYPE, action_symbol: str, opt_type: str) -> None:
+#     """
+#     Common handler for /run{b|s}{c|p} commands.
+#     action_symbol: "B" or "S"
+#     opt_type: "call" or "put"
+#     """
+#     # Try to determine base from args; default to BTC
+#     base = "BTC"
+#     if context.args and context.args[0].upper() in ["BTC", "ETH"]:
+#         base = context.args[0].upper()
+#     # fetch ATM instruments for all expiries for the given base and opt_type
+#     rows, spot = _find_atm_instruments_all_expiries(base, opt_type)
+#     if rows == [] and spot is None:  # spot fetch failed
+#         await update.message.reply_text(f"Could not fetch spot for {base}.")
+#         return
+#     if not rows:  # no expiries found
+#         await update.message.reply_text(f"No expiries found for {base} {opt_type}s.")
+#         return
+#     # format and send the message to user
+#     coin_sym = base
+#     header = (
+#         f"*{base} {('Buy' if action_symbol=='B' else 'Sell')} {opt_type.capitalize()} — ATM by Expiry*\n"
+#         f"Spot: {spot:,.2f} USD\n"
+#         "```\n"
+#         f"{'Date':<9} {'DTE':>3} {'Strike':>9} {'B/S':>3} {'Type':>4} "
+#         f"{'USD':>10} {coin_sym:>8} {'OI':>6}\n"
+#         f"{'-'*9} {'-'*3:>3} {'-'*9:>9} {'-'*3:>3} {'-'*4:>4} "
+#         f"{'-'*10:>10} {'-'*8:>8} {'-'*6:>6}\n"
+#     )
+#     body = ""
+#     for r in rows:
+#         body += (
+#             f"{r['date']:<9} {r['tenor']:>3} {r['strike']:>9,.0f} {action_symbol:>3} {('C' if opt_type=='call' else 'P'):>4} "
+#             f"{r['premium_usd']:>10,.2f} {r['premium_coin']:>8,.6f} {r['open_interest']:>6}\n"
+#         )
+#     msg = header + body + "```"
+#     await update.message.reply_text(msg, parse_mode="Markdown")
+
 async def _runs_common(update: Update, context: ContextTypes.DEFAULT_TYPE, action_symbol: str, opt_type: str) -> None:
     """
     Common handler for /run{b|s}{c|p} commands.
@@ -1031,14 +1076,24 @@ async def _runs_common(update: Update, context: ContextTypes.DEFAULT_TYPE, actio
     base = "BTC"
     if context.args and context.args[0].upper() in ["BTC", "ETH"]:
         base = context.args[0].upper()
+    _, msg, is_error = _get_runs_common(base, action_symbol, opt_type)
+    if is_error:
+        await update.message.reply_text(msg)
+        return
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+def _get_runs_common(base: str, action_symbol: str, opt_type: str) -> tuple[list, str, bool]:
+    """
+    Common handler for /run{b|s}{c|p} commands.
+    action_symbol: "B" or "S"
+    opt_type: "call" or "put"
+    """
     # fetch ATM instruments for all expiries for the given base and opt_type
     rows, spot = _find_atm_instruments_all_expiries(base, opt_type)
     if rows == [] and spot is None:  # spot fetch failed
-        await update.message.reply_text(f"Could not fetch spot for {base}.")
-        return
+        return {}, f"Could not fetch spot for {base}.", True
     if not rows:  # no expiries found
-        await update.message.reply_text(f"No expiries found for {base} {opt_type}s.")
-        return
+        return {}, f"No expiries found for {base} {opt_type}s.", True
     # format and send the message to user
     coin_sym = base
     header = (
@@ -1051,13 +1106,39 @@ async def _runs_common(update: Update, context: ContextTypes.DEFAULT_TYPE, actio
         f"{'-'*10:>10} {'-'*8:>8} {'-'*6:>6}\n"
     )
     body = ""
+    res = []
     for r in rows:
+        res.append([r['date'], r['tenor'], r['strike'], action_symbol, ('C' if opt_type=='call' else 'P'),
+                    r['premium_usd'], r['premium_coin'], r['open_interest']])
         body += (
             f"{r['date']:<9} {r['tenor']:>3} {r['strike']:>9,.0f} {action_symbol:>3} {('C' if opt_type=='call' else 'P'):>4} "
             f"{r['premium_usd']:>10,.2f} {r['premium_coin']:>8,.6f} {r['open_interest']:>6}\n"
         )
     msg = header + body + "```"
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    return res, msg, False
+
+def _get_all_runs(base: str) -> dict[tuple[list, str, bool]]:
+    """
+    Get all 4 runs (sell call, sell put, buy call, buy put) for the given base.
+    Returns (runs_dict, msg, is_error) where runs_dict has keys:
+        'Sell Call', 'Sell Put', 'Buy Call', 'Buy Put'
+    Each value is a tuple of data list, telegram msg string, is_error bool
+        The data list has rows with fields:
+            [date, tenor, strike, action_symbol, type, premium_usd, premium_coin, open_interest]
+    i.e (data, msg, False) if success,
+    or ([], msg, True) if error.
+    """
+    runs = {}
+    runs_types = [
+                    ("S", "call", PRETTY_RUNS_TYPE.SELL_CALL.value),
+                    ("S", "put", PRETTY_RUNS_TYPE.SELL_PUT.value),
+                    ("B", "call", PRETTY_RUNS_TYPE.BUY_CALL.value),
+                    ("B", "put", PRETTY_RUNS_TYPE.BUY_PUT.value)
+                ]
+    for action_symbol, opt_type, key in runs_types:
+        res, msg, is_error = _get_runs_common(base, action_symbol, opt_type)
+        runs[key] = (res, msg, is_error)
+    return runs
 
 async def runsc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -1597,20 +1678,6 @@ def get_price(base: str) -> tuple[list[str], str, bool]:
     vol_24h = stats.get("volume", None)  # base-coin volume if provided
     vol_delta = stats.get("volume_change") or stats.get("volume_change_pct")  # may be missing
 
-    def fnum(x, n=2):
-        try:
-            return f"{float(x):,.{n}f}"
-        except Exception:
-            return "n/a"
-
-    def fpct(p):
-        if p is None:
-            return "n/a"
-        try:
-            return f"{float(p):.2f}%"
-        except Exception:
-            return "n/a"
-
     header = f"*{idx_label} — Deribit Market Snapshot*"
     lines = [
         fnum(spot),
@@ -1715,6 +1782,105 @@ async def basis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:  # 
     await update.message.reply_text(header + body, parse_mode="Markdown")
 
 # === /option BTC-31DEC25-60000-C ===
+# async def option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     """
+#     /option [INSTRUMENT_NAME] - Option valuation vs realized vol
+#     Example: /option BTC-31DEC25-60000-C
+#     """
+#     if not context.args:
+#         await update.message.reply_text("Usage: /option BTC-31DEC25-60000-C")
+#         return
+
+#     inst_name = context.args[0].upper()
+#     try:
+#         inst = get_instrument(inst_name)
+#         if not inst:
+#             await update.message.reply_text("Invalid or unknown option instrument.")
+#             return
+
+#         base = inst_name.split("-")[0].upper()
+#         quote_ccy = (inst.get("quote_currency") or "").upper()
+
+#         # Inverse-only guard (coin-settled BTC/ETH options)
+#         if quote_ccy not in ("BTC", "ETH"):
+#             await update.message.reply_text(
+#                 "This looks like a USD/USDC‑settled option. "
+#                 "This command supports only inverse coin‑settled options (BTC/ETH)."
+#             )
+#             return
+
+#         # Deribit index spot (USD-first)
+#         S = _get_deribit_index_usd_first(base)
+#         if S is None:
+#             await update.message.reply_text(f"Could not fetch {base} index price.")
+#             return
+#         S = float(S)
+
+#         # Expiry / tenor
+#         expiry_ts = int(inst.get("expiration_timestamp") or 0)
+#         now = datetime.now(timezone.utc)
+#         expiry_dt = datetime.fromtimestamp(expiry_ts / 1000, tz=timezone.utc)
+#         T_years = max((expiry_dt - now).total_seconds() / (365.0 * 24.0 * 3600.0), 1e-6)
+#         dte_days = (expiry_dt - now).total_seconds() / 86400.0
+#         K = float(inst.get("strike") or 0.0)
+#         opt_type = "call" if inst.get("option_type") == "call" else "put"
+
+#         # Mid (coin) from bid/ask only (no LAST, no MARK)
+#         _, bm = get_book_summary_by_currency(base, "option", ttl=8)
+#         summ = bm.get(inst_name, {}) or {}
+#         bid = float(summ.get("bid_price") or 0.0)
+#         ask = float(summ.get("ask_price") or 0.0)
+#         if not (bid > 0 and ask > 0):
+#             await update.message.reply_text("No live bid/ask — cannot compute coin mid for this option.")
+#             return
+#         coin_mid = (bid + ask) / 2.0
+
+#         # USD conversion via index spot
+#         usd_mid = coin_mid * S
+
+#         # RFR and Market IV (from BS)
+#         r = get_risk_free_rate()
+#         iv = implied_vol(usd_mid, S, K, T_years, r, opt_type)
+
+#         # Realized vol (Yang–Zhang, adaptive by DTE)
+#         rv = get_realized_vol_yz_dynamic(base, dte_days)
+
+#         # Fair price under RV and Diff
+#         fair_price = bs_price(S, K, T_years, r, rv, opt_type)
+#         diff = usd_mid - fair_price
+#         status = "*Overpriced*" if diff > 0 else "*Underpriced*"
+
+#         # Pretty print (same style as your screenshot)
+#         coin_sym = base
+#         def fnum(x, n=2): 
+#             try: return f"{float(x):,.{n}f}"
+#             except Exception: return "n/a"
+#         def pct(x): 
+#             try: return f"{float(x)*100:.2f}%"
+#             except Exception: return "n/a"
+
+#         msg = (
+#             f"*{inst_name} — Option Valuation*\n"
+#             "```\n"
+#             f"{'Spot (USD)':<18}: {fnum(S):>12}\n"
+#             f"{'Strike (USD)':<18}: {fnum(K):>12}\n"
+#             f"{'Type':<18}: {opt_type.upper():>12}\n"
+#             f"{'Expiry (days)':<18}: {dte_days:>12.1f}\n"
+#             f"{'Risk‑Free r':<18}: {pct(r):>12}\n"
+#             f"{('Option Mid (' + coin_sym + ')'):<18}: {coin_mid:>12,.6f}\n"
+#             f"{'Option Mid (USD)':<18}: {usd_mid:>12,.2f}\n"
+#             f"{'Fair Price (USD)':<18}: {fair_price:>12,.2f}\n"
+#             f"{'Diff (USD)':<18}: {diff:>12,.2f}\n"
+#             f"{'Market IV':<18}: {pct(iv):>12}\n"
+#             f"{'Realized Vol (YZ)':<18}: {pct(rv):>12}\n"
+#                         "```\n"
+#             f"{status}"
+#         )
+#         await update.message.reply_text(msg, parse_mode="Markdown")
+#     except Exception as e:
+#         logging.exception(e)
+#         await update.message.reply_text("Error analyzing option.")
+
 async def option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     /option [INSTRUMENT_NAME] - Option valuation vs realized vol
@@ -1726,27 +1892,37 @@ async def option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     inst_name = context.args[0].upper()
     try:
+        _, msg, is_error = get_option(inst_name)
+        if is_error:
+            await update.message.reply_text(msg)
+            return
+        await update.message.reply_text(msg, parse_mode="Markdown")
+    except Exception as e:
+        logging.exception(e)
+        await update.message.reply_text("Error analyzing option.")
+
+def get_option(inst_name: str) -> tuple[dict, str, bool]:
+    """
+    /option [INSTRUMENT_NAME] - Option valuation vs realized vol
+    Example: /option BTC-31DEC25-60000-C
+    """
+    try:
         inst = get_instrument(inst_name)
         if not inst:
-            await update.message.reply_text("Invalid or unknown option instrument.")
-            return
+            return {}, "Invalid or unknown option instrument.", True
 
         base = inst_name.split("-")[0].upper()
-        quote_ccy = (inst.get("quote_currency") or "").upper()
+        quote_ccy = inst.get("quote_currency", "").upper()
 
         # Inverse-only guard (coin-settled BTC/ETH options)
         if quote_ccy not in ("BTC", "ETH"):
-            await update.message.reply_text(
-                "This looks like a USD/USDC‑settled option. "
-                "This command supports only inverse coin‑settled options (BTC/ETH)."
-            )
-            return
+            return {}, "This looks like a USD/USDC-settled option.\n" \
+                    "This command supports only inverse coin-settled options (BTC/ETH).", True
 
         # Deribit index spot (USD-first)
         S = _get_deribit_index_usd_first(base)
         if S is None:
-            await update.message.reply_text(f"Could not fetch {base} index price.")
-            return
+            return {}, f"Could not fetch {base} index price.", True
         S = float(S)
 
         # Expiry / tenor
@@ -1754,18 +1930,17 @@ async def option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         now = datetime.now(timezone.utc)
         expiry_dt = datetime.fromtimestamp(expiry_ts / 1000, tz=timezone.utc)
         T_years = max((expiry_dt - now).total_seconds() / (365.0 * 24.0 * 3600.0), 1e-6)
-        dte_days = (expiry_dt - now).total_seconds() / 86400.0
-        K = float(inst.get("strike") or 0.0)
+        dte_days = (expiry_dt - now).total_seconds() / 86400.0  # days
+        K = float(inst.get("strike", 0.0))
         opt_type = "call" if inst.get("option_type") == "call" else "put"
 
         # Mid (coin) from bid/ask only (no LAST, no MARK)
         _, bm = get_book_summary_by_currency(base, "option", ttl=8)
-        summ = bm.get(inst_name, {}) or {}
-        bid = float(summ.get("bid_price") or 0.0)
-        ask = float(summ.get("ask_price") or 0.0)
+        summ = bm.get(inst_name, {})
+        bid = float(summ.get("bid_price", 0.0))
+        ask = float(summ.get("ask_price", 0.0))
         if not (bid > 0 and ask > 0):
-            await update.message.reply_text("No live bid/ask — cannot compute coin mid for this option.")
-            return
+            return {}, "No live bid/ask — cannot compute coin mid for this option.", True
         coin_mid = (bid + ask) / 2.0
 
         # USD conversion via index spot
@@ -1781,40 +1956,74 @@ async def option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Fair price under RV and Diff
         fair_price = bs_price(S, K, T_years, r, rv, opt_type)
         diff = usd_mid - fair_price
-        status = "*Overpriced*" if diff > 0 else "*Underpriced*"
+        status = "Overpriced" if diff > 0 else "Underpriced"
 
         # Pretty print (same style as your screenshot)
         coin_sym = base
-        def fnum(x, n=2): 
-            try: return f"{float(x):,.{n}f}"
-            except Exception: return "n/a"
-        def pct(x): 
-            try: return f"{float(x)*100:.2f}%"
-            except Exception: return "n/a"
-
+        res = {
+            PRETTY_PARAMETERS.INSTRUMENT_NAME.value: inst_name,
+            PRETTY_PARAMETERS.SPOT_PRICE.value: fnum(S),
+            PRETTY_PARAMETERS.STRIKE_PRICE.value: fnum(K),
+            PRETTY_PARAMETERS.OPTION_TYPE.value: opt_type.upper(),
+            PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value: dte_days,
+            PRETTY_PARAMETERS.INTEREST_RATE.value: pct(r),
+            PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')': coin_mid,
+            PRETTY_PARAMETERS.OPTION_MID.value+' (USD)': usd_mid,
+            PRETTY_PARAMETERS.FAIR_PRICE.value: fair_price,
+            PRETTY_PARAMETERS.PRICE_DIFF.value: diff,
+            PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value: pct(iv),
+            PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value: pct(rv),
+            PRETTY_PARAMETERS.STATUS.value: status
+        }
         msg = (
-            f"*{inst_name} — Option Valuation*\n"
+            f"*{res[PRETTY_PARAMETERS.INSTRUMENT_NAME.value]} — Option Valuation*\n"
             "```\n"
-            f"{'Spot (USD)':<18}: {fnum(S):>12}\n"
-            f"{'Strike (USD)':<18}: {fnum(K):>12}\n"
-            f"{'Type':<18}: {opt_type.upper():>12}\n"
-            f"{'Expiry (days)':<18}: {dte_days:>12.1f}\n"
-            f"{'Risk‑Free r':<18}: {pct(r):>12}\n"
-            f"{('Option Mid (' + coin_sym + ')'):<18}: {coin_mid:>12,.6f}\n"
-            f"{'Option Mid (USD)':<18}: {usd_mid:>12,.2f}\n"
-            f"{'Fair Price (USD)':<18}: {fair_price:>12,.2f}\n"
-            f"{'Diff (USD)':<18}: {diff:>12,.2f}\n"
-            f"{'Market IV':<18}: {pct(iv):>12}\n"
-            f"{'Realized Vol (YZ)':<18}: {pct(rv):>12}\n"
-                        "```\n"
-            f"{status}"
+            f"{(PRETTY_PARAMETERS.SPOT_PRICE.value+' (USD)'):<18}: {res[PRETTY_PARAMETERS.SPOT_PRICE.value]:>12}\n"
+            f"{(PRETTY_PARAMETERS.STRIKE_PRICE.value+' (USD)'):<18}: {res[PRETTY_PARAMETERS.STRIKE_PRICE.value]:>12}\n"
+            f"{PRETTY_PARAMETERS.OPTION_TYPE.value:<18}: {res[PRETTY_PARAMETERS.OPTION_TYPE.value]:>12}\n"
+            f"{(PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value+' (days)'):<18}: {res[PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value]:>12.1f}\n"
+            f"{PRETTY_PARAMETERS.INTEREST_RATE.value:<18}: {res[PRETTY_PARAMETERS.INTEREST_RATE.value]:>12}\n"
+            f"{(PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')'):<18}: {res[PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')']:>12,.6f}\n"
+            f"{(PRETTY_PARAMETERS.OPTION_MID.value+' (USD)'):<18}: {res[PRETTY_PARAMETERS.OPTION_MID.value+' (USD)']:>12,.2f}\n"
+            f"{(PRETTY_PARAMETERS.FAIR_PRICE.value+' (USD)'):<18}: {res[PRETTY_PARAMETERS.FAIR_PRICE.value]:>12,.2f}\n"
+            f"{PRETTY_PARAMETERS.PRICE_DIFF.value+' (USD)':<18}: {res[PRETTY_PARAMETERS.PRICE_DIFF.value]:>12,.2f}\n"
+            f"{PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value:<18}: {res[PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value]:>12}\n"
+            f"{PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value:<18}: {res[PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value]:>12}\n"
+             "```\n"
+            f"{res[PRETTY_PARAMETERS.STATUS.value]}"
         )
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        return res, msg, False
     except Exception as e:
         logging.exception(e)
-        await update.message.reply_text("Error analyzing option.")
+        return {}, "Error analyzing option.", True
 
 # === /greeks BTC-31DEC25-60000-C ===
+# async def greeks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     """
+#     /greeks [INSTRUMENT_NAME] - Show option Greeks (Delta, Gamma, Vega, Theta, Rho)
+#     Example: /greeks BTC-31DEC25-6000-C
+#     """
+#     if not context.args:
+#         await update.message.reply_text("Usage: /greeks BTC-31DEC25-60000-C")
+#         return
+#     inst = context.args[0].upper()
+#     data, err = bs_greeks_wrapper(inst)
+#     if err:
+#         await update.message.reply_text(err)
+#         print(err)
+#         return
+#     g_mkt = data["g_mkt"]
+#     msg = (
+#         f"*{inst} — Greeks (mid→last(fresh)→mark)*\n```\n"
+#         f"Delta  : {g_mkt['delta']:.4f}\n"
+#         f"Gamma  : {g_mkt['gamma']:.6f}\n"
+#         f"Vega   : {g_mkt['vega_per_1pct']:.4f}\n"
+#         f"Theta  : {g_mkt['theta_per_day']:.4f}\n"
+#         f"Rho    : {g_mkt['rho_per_1pct']:.4f}\n"
+#         "```"
+#     )
+#     await update.message.reply_text(msg, parse_mode="Markdown")
+
 async def greeks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     /greeks [INSTRUMENT_NAME] - Show option Greeks (Delta, Gamma, Vega, Theta, Rho)
@@ -1823,24 +2032,38 @@ async def greeks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not context.args:
         await update.message.reply_text("Usage: /greeks BTC-31DEC25-60000-C")
         return
-    inst = context.args[0].upper()
-    data, err = bs_greeks_wrapper(inst)
-    if err:
-        await update.message.reply_text(err)
-        print(err)
+    _, msg, is_error = get_greeks(context.args[0].upper())
+    if is_error:
+        await update.message.reply_text(msg)
         return
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+def get_greeks(inst_name: str) -> tuple[dict, str, bool]:
+    """
+    /greeks [INSTRUMENT_NAME] - Show option Greeks (Delta, Gamma, Vega, Theta, Rho)
+    Example: /greeks BTC-31DEC25-6000-C
+    """
+    data, err = bs_greeks_wrapper(inst_name)
+    if err: return {}, err, True
     g_mkt = data["g_mkt"]
+    res = {
+        PRETTY_PARAMETERS.INSTRUMENT_NAME.value: inst_name,
+        PRETTY_PARAMETERS.DELTA.value: g_mkt['delta'],
+        PRETTY_PARAMETERS.GAMMA.value: g_mkt['gamma'],
+        PRETTY_PARAMETERS.VEGA.value: g_mkt['vega_per_1pct'],
+        PRETTY_PARAMETERS.THETA.value: g_mkt['theta_per_day'],
+        PRETTY_PARAMETERS.RHO.value: g_mkt['rho_per_1pct']
+    }
     msg = (
-        f"*{inst} — Greeks (mid→last(fresh)→mark)*\n```\n"
-        f"Delta  : {g_mkt['delta']:.4f}\n"
-        f"Gamma  : {g_mkt['gamma']:.6f}\n"
-        f"Vega   : {g_mkt['vega_per_1pct']:.4f}\n"
-        f"Theta  : {g_mkt['theta_per_day']:.4f}\n"
-        f"Rho    : {g_mkt['rho_per_1pct']:.4f}\n"
+        f"*{res[PRETTY_PARAMETERS.INSTRUMENT_NAME.value]} — Greeks (mid→last(fresh)→mark)*\n```\n"
+        f"{res[PRETTY_PARAMETERS.DELTA.value]}  : {g_mkt['delta']:.4f}\n"
+        f"{res[PRETTY_PARAMETERS.GAMMA.value]}  : {g_mkt['gamma']:.6f}\n"
+        f"{res[PRETTY_PARAMETERS.VEGA.value]}   : {g_mkt['vega_per_1pct']:.4f}\n"
+        f"{res[PRETTY_PARAMETERS.THETA.value]}  : {g_mkt['theta_per_day']:.4f}\n"
+        f"{res[PRETTY_PARAMETERS.RHO.value]}    : {g_mkt['rho_per_1pct']:.4f}\n"
         "```"
     )
-    print(msg)
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    return res, msg, False
 
 # === MAIN ===
 def main():

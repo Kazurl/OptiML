@@ -25,3 +25,37 @@ class PARAMETERS(Enum):
     DAYS_TO_EXPIRY = "days_to_expiry"
     DIVIDEND_YIELD = "dividend_yield"
     TIME_STEPS = "time_steps"
+
+
+class PRETTY_OPTION_TYPE(Enum):
+    CALL = "Call"
+    PUT = "Put"
+
+class PRETTY_PARAMETERS(Enum):
+    INSTRUMENT_NAME = "Instrument Name"
+    OPTION_TYPE = "Type"
+    STOCK_PRICE = "Stock Price"
+    SPOT_PRICE = "Spot"
+    STRIKE_PRICE = "Strike"
+    INTEREST_RATE = "Risk-Free r"
+    REALIZED_VOLATILITY = "Realized Vol"
+    REALIZED_VOLATILITY_YZ = "Realized Vol (YZ)"
+    IMPLIED_VOLATILITY = "Market IV"
+    DAYS_TO_EXPIRY = "Expiry (days)"
+    DIVIDEND_YIELD = "Dividend Yield"
+    TIME_STEPS = "Time Steps (N)"
+    OPTION_MID = "Option Mid"
+    FAIR_PRICE = "Fair Price"
+    PRICE_DIFF = "Price Diff"
+    DELTA = "Delta"
+    GAMMA = "Gamma"
+    THETA = "Theta"
+    VEGA = "Vega"
+    RHO = "Rho"
+    STATUS = "Status"
+
+class PRETTY_RUNS_TYPE(Enum):
+    BUY_CALL = "Buy Call"
+    BUY_PUT = "Buy Put"
+    SELL_CALL = "Sell Call"
+    SELL_PUT = "Sell Put"

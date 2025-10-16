@@ -1,8 +1,16 @@
 import os
+import pandas as pd
 import streamlit as st
 from utils.telegram.telegram_utils import (
+    show_all_option_valuations_greeks,
+    show_all_runs,
     show_price,
 )
+from utils.enums_option import (
+    PRETTY_PARAMETERS, PRETTY_RUNS_TYPE,
+)
+from utils.string_formatter import inst_name_formatter
+
 def load_sidebar_css(css_file_path: str) -> None:
     with open(css_file_path, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -13,15 +21,10 @@ def show_crypto_page():
     st.title("Crypto Trading Desk")
     st.caption("This section provides tools for cryptocurrency market analysis and trading actions.")
     
-    # Example instruments data (in practice, fetch from Deribit API)
-    instruments = [
-        "BTC-30JUN23-30000-C",
-        "BTC-30JUN23-30000-P",
-        "ETH-30JUN23-2000-C",
-        "ETH-30JUN23-2000-P"
-    ]
     base = select_base()
     st.write(f":money_with_wings: Working with {base} Market on Deribit!")
+    # sample data
+    runs = show_all_runs(base)
 
     tab_market, tab_options, tab_vol, tab_trading, tab_telegram = st.tabs(
         [
@@ -32,6 +35,17 @@ def show_crypto_page():
             "Telegram Log"
         ]
     )
+    
+    # load all runs' options valuations and greeks
+    inst_dict = {}
+    for run_type, data in runs.items():
+        inst_dict[run_type] = []
+        for cols in data:
+            # data = [date, tenor, strike, action_symbol, type, premium_usd, premium_coin, open_interest]
+            # inst_name = "BTC-30DEC22-40000-C" or "ETH-30DEC22-40000-P"
+            inst_name = inst_name_formatter(base, cols[0], cols[2], cols[4][0])
+            inst_dict[run_type].append(inst_name)
+    all_valuations_greeks = show_all_option_valuations_greeks(inst_dict)
 
     with tab_market:
         st.header(f"{base} Market Chart Overview")
@@ -45,13 +59,63 @@ def show_crypto_page():
     with tab_options:
         st.header("Options Chain / Greeks")
         #instruments = getoptioninstrumentsbase(base)
-        st.write(f"Options available for {base}", instruments)
-        # Example command: Option Greeks Lookup
-        instrument_name = st.text_input("Enter Option Instrument Name:")
-        #if st.button("Get Greeks"):
-            #result = greeksupdate(instrument_name)
-            #st.write(result)
-            #send_command_to_telegram(f"Greeks Query for {instrument_name}")
+        runs_tabs = st.tabs(
+            ["Buy Call", "Buy Put", "Sell Call", "Sell Put"]
+        )
+        # runs_cols, valuation_cols, greeks_cols
+        runs_cols = ["Date", "DTE", "Strike", "B/S", "Type", "USD", base, "OI"]
+        valuation_cols = [
+            PRETTY_PARAMETERS.INSTRUMENT_NAME.value,
+            PRETTY_PARAMETERS.SPOT_PRICE.value,
+            PRETTY_PARAMETERS.STRIKE_PRICE.value,
+            PRETTY_PARAMETERS.OPTION_TYPE.value,
+            PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value,
+            PRETTY_PARAMETERS.INTEREST_RATE.value,
+            PRETTY_PARAMETERS.OPTION_MID.value+f" ({base})",
+            PRETTY_PARAMETERS.OPTION_MID.value+" (USD)",
+            PRETTY_PARAMETERS.FAIR_PRICE.value,
+            PRETTY_PARAMETERS.PRICE_DIFF.value,
+            PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value,
+            PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value,
+            PRETTY_PARAMETERS.STATUS.value
+        ]
+        greeks_cols = [
+            PRETTY_PARAMETERS.INSTRUMENT_NAME.value,
+            PRETTY_PARAMETERS.DELTA.value,
+            PRETTY_PARAMETERS.GAMMA.value,
+            PRETTY_PARAMETERS.VEGA.value,
+            PRETTY_PARAMETERS.THETA.value,
+            PRETTY_PARAMETERS.RHO.value
+        ]
+        # init dfs
+        runs_dfs, valuation_dfs, greeks_dfs = {}, {}, {}
+        # create dataframes for each run type
+        run_types = [
+            PRETTY_RUNS_TYPE.BUY_CALL.value,
+            PRETTY_RUNS_TYPE.BUY_PUT.value,
+            PRETTY_RUNS_TYPE.SELL_CALL.value,
+            PRETTY_RUNS_TYPE.SELL_PUT.value
+        ]
+        for run_type in run_types:
+            valuation_dfs[run_type] = pd.DataFrame(
+                                        all_valuations_greeks[run_type]["valuations"],
+                                        columns=valuation_cols
+                                    ) if all_valuations_greeks else pd.DataFrame(columns=valuation_cols)
+            greeks_dfs[run_type] = pd.DataFrame(
+                                        all_valuations_greeks[run_type]["greeks"],
+                                        columns=greeks_cols
+                                    ) if all_valuations_greeks else pd.DataFrame(columns=greeks_cols)
+
+        for tab, run in zip(runs_tabs, run_types):
+            with tab:
+                st.subheader(f"{base} {run} — ATM by Expiry")
+                # --- Display Option Contracts ---
+                st.dataframe(runs_dfs[run], height=310, hide_index=True)
+                # --- Display Option Valuations and Greeks ---
+                st.subheader("Option Valuations")
+                st.dataframe(valuation_dfs[run], height=310, hide_index=True)
+                st.subheader("Option Greeks")
+                st.dataframe(greeks_dfs[run], height=310, hide_index=True)
 
     with tab_vol:
         st.header("Volatility Surface and Forecasts")
