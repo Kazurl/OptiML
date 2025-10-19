@@ -65,10 +65,13 @@ def show_all_option_valuations_greeks(inst_dict: dict[list[str]]) -> dict | None
             valuations, greeks = [], []
             print(f"{run_type}: {inst_list}")  # todo: remove when done
             for inst_name in inst_list:
-                val_data, _, _ = get_option(inst_name)
-                greeks_data, _, _ = get_greeks(inst_name)
-                valuations.append(val_data.values() if val_data else ["N/A"] * 13)
-                greeks.append(greeks_data.values() if greeks_data else ["N/A"] * 6)
+                # get the valuation and greeks data for this instrument
+                val_raw_data, val_proc_data, _, _ = get_option(inst_name)
+                greeks_raw_data, greeks_proc_data, _, _ = get_greeks(inst_name)
+
+                # add to respective row
+                valuations.append(val_proc_data.values() if val_proc_data else ["N/A"] * 13)
+                greeks.append(greeks_proc_data.values() if greeks_proc_data else ["N/A"] * 6)
             res[run_type] = {"valuations": valuations, "greeks": greeks}
         return res
     except Exception as e:
@@ -77,12 +80,13 @@ def show_all_option_valuations_greeks(inst_dict: dict[list[str]]) -> dict | None
  
 def show_all_runs(base: str) -> dict | None:
     """
-    Wrapper function to get all 4 runs (sell call, sell put, buy call, buy put) for the given base (BTC or ETH).
+    Wrapper function to get all 4 run types (sell call, sell put, buy call, buy put) for the given base (BTC or ETH).
+    Returns dict of {run_type: raw and processed data list}
     """
     try:
         runs = _get_all_runs(base)
         err_flag = False
-        for run_type, (data, msg, is_error) in runs.items():
+        for run_type, (raw_data, processed_data, msg, is_error) in runs.items():
             if is_error: err_flag = True
             # send to telegram
             payload = {
@@ -92,12 +96,13 @@ def show_all_runs(base: str) -> dict | None:
             }
             res = requests.post(TELEGRAM_BOT_URL, data=payload, timeout=10)  # todo: change to list of chat ids if multiple groups
             res.raise_for_status()
+        # raise error if any
         if err_flag:
             raise ValueError("One or more errors occurred while fetching runs.")
-        return {k: v[0] for k, v in runs.items()}
+        return {k: v[:2] for k, v in runs.items()}
     except Exception as e:
         print(f"Error fetching all runs for {base} in telegram_utils.show_all_runs: {e}")
-        return {k: v[0] for k, v in runs.items()}
+        return {k: v[:2] for k, v in runs.items()}
 
 def show_greeks(inst_name: str) -> dict | None:
     """

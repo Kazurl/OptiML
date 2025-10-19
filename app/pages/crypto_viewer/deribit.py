@@ -1076,24 +1076,29 @@ async def _runs_common(update: Update, context: ContextTypes.DEFAULT_TYPE, actio
     base = "BTC"
     if context.args and context.args[0].upper() in ["BTC", "ETH"]:
         base = context.args[0].upper()
-    _, msg, is_error = _get_runs_common(base, action_symbol, opt_type)
+    _, _, msg, is_error = _get_runs_common(base, action_symbol, opt_type)
     if is_error:
         await update.message.reply_text(msg)
         return
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-def _get_runs_common(base: str, action_symbol: str, opt_type: str) -> tuple[list, str, bool]:
+def _get_runs_common(base: str, action_symbol: str, opt_type: str) -> tuple[list, list, str, bool]:
     """
     Common handler for /run{b|s}{c|p} commands.
     action_symbol: "B" or "S"
     opt_type: "call" or "put"
+    Returns
+        raw: list of raw res (any type)
+        processed: list of res processed to be within valid dp (str type)
+        msg: msg to be sent to telegram
+        is_error: True/False depending on smooth/failed operation
     """
     # fetch ATM instruments for all expiries for the given base and opt_type
     rows, spot = _find_atm_instruments_all_expiries(base, opt_type)
     if rows == [] and spot is None:  # spot fetch failed
-        return {}, f"Could not fetch spot for {base}.", True
+        return [], [], f"Could not fetch spot for {base}.", True
     if not rows:  # no expiries found
-        return {}, f"No expiries found for {base} {opt_type}s.", True
+        return [], [], f"No expiries found for {base} {opt_type}s.", True
     # format and send the message to user
     coin_sym = base
     header = (
@@ -1105,28 +1110,29 @@ def _get_runs_common(base: str, action_symbol: str, opt_type: str) -> tuple[list
         f"{'-'*9} {'-'*3:>3} {'-'*9:>9} {'-'*3:>3} {'-'*4:>4} "
         f"{'-'*10:>10} {'-'*8:>8} {'-'*6:>6}\n"
     )
-    body = ""
-    res = []
+    raw, processed, body = [], [], ""
     for r in rows:
-        res.append([r['date'], r['tenor'], r['strike'], action_symbol, ('C' if opt_type=='call' else 'P'),
+        raw.append([r['date'], r['tenor'], r['strike'], action_symbol, ('C' if opt_type=='call' else 'P'),
                     r['premium_usd'], r['premium_coin'], r['open_interest']])
+        processed.append([r['date'], r['tenor'], fnum(r['strike'], 0), action_symbol, ('C' if opt_type=='call' else 'P'),
+                          fnum(r['premium_usd']), fnum(r['premium_coin'], 6), f"{r['open_interest']}"])
         body += (
             f"{r['date']:<9} {r['tenor']:>3} {r['strike']:>9,.0f} {action_symbol:>3} {('C' if opt_type=='call' else 'P'):>4} "
             f"{r['premium_usd']:>10,.2f} {r['premium_coin']:>8,.6f} {r['open_interest']:>6}\n"
         )
     msg = header + body + "```"
-    return res, msg, False
+    return raw, processed, msg, False
 
-def _get_all_runs(base: str) -> dict[tuple[list, str, bool]]:
+def _get_all_runs(base: str) -> dict[tuple[list, list, str, bool]]:
     """
     Get all 4 runs (sell call, sell put, buy call, buy put) for the given base.
-    Returns (runs_dict, msg, is_error) where runs_dict has keys:
+    Returns (runs_raw_dict, runs_processed_dict, msg, is_error) where runs_dict has keys:
         'Sell Call', 'Sell Put', 'Buy Call', 'Buy Put'
-    Each value is a tuple of data list, telegram msg string, is_error bool
+    Each value is a tuple of raw data list, processed data list, telegram msg string, is_error bool
         The data list has rows with fields:
             [date, tenor, strike, action_symbol, type, premium_usd, premium_coin, open_interest]
-    i.e (data, msg, False) if success,
-    or ([], msg, True) if error.
+    i.e (raw_data, proc_data, msg, False) if success,
+    or ([], [], msg, True) if error.
     """
     runs = {}
     runs_types = [
@@ -1136,8 +1142,8 @@ def _get_all_runs(base: str) -> dict[tuple[list, str, bool]]:
                     ("B", "put", PRETTY_RUNS_TYPE.BUY_PUT.value)
                 ]
     for action_symbol, opt_type, key in runs_types:
-        res, msg, is_error = _get_runs_common(base, action_symbol, opt_type)
-        runs[key] = (res, msg, is_error)
+        raw, processed, msg, is_error = _get_runs_common(base, action_symbol, opt_type)
+        runs[key] = (raw, processed, msg, is_error)
     return runs
 
 async def runsc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1514,7 +1520,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     )
     await update.message.reply_text(text, parse_mode="HTML")
-    print(chat_id)  # todo: remove when done
+    print(f"chat_id: {chat_id}")  # todo: remove when done
     return chat_id
 
 # === /price BTC or ETH ===
@@ -1892,7 +1898,7 @@ async def option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     inst_name = context.args[0].upper()
     try:
-        _, msg, is_error = get_option(inst_name)
+        _, _, msg, is_error = get_option(inst_name)
         if is_error:
             await update.message.reply_text(msg)
             return
@@ -1901,28 +1907,33 @@ async def option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logging.exception(e)
         await update.message.reply_text("Error analyzing option.")
 
-def get_option(inst_name: str) -> tuple[dict, str, bool]:
+def get_option(inst_name: str) -> tuple[dict, dict, str, bool]:
     """
     /option [INSTRUMENT_NAME] - Option valuation vs realized vol
     Example: /option BTC-31DEC25-60000-C
+    Returns
+        raw: dict of raw values if val else None (any type)
+        processed: dict of processed vals in valid dp else 'n/a' (str type) 
+        msg: telegram message (str type)
+        is_error: True/ False (bool type)
     """
     try:
         inst = get_instrument(inst_name)
         if not inst:
-            return {}, "Invalid or unknown option instrument.", True
+            return {}, {}, "Invalid or unknown option instrument.", True
 
         base = inst_name.split("-")[0].upper()
         quote_ccy = inst.get("quote_currency", "").upper()
 
         # Inverse-only guard (coin-settled BTC/ETH options)
         if quote_ccy not in ("BTC", "ETH"):
-            return {}, "This looks like a USD/USDC-settled option.\n" \
+            return {}, {}, "This looks like a USD/USDC-settled option.\n" \
                     "This command supports only inverse coin-settled options (BTC/ETH).", True
 
         # Deribit index spot (USD-first)
         S = _get_deribit_index_usd_first(base)
         if S is None:
-            return {}, f"Could not fetch {base} index price.", True
+            return {}, {}, f"Could not fetch {base} index price.", True
         S = float(S)
 
         # Expiry / tenor
@@ -1940,7 +1951,7 @@ def get_option(inst_name: str) -> tuple[dict, str, bool]:
         bid = float(summ.get("bid_price", 0.0))
         ask = float(summ.get("ask_price", 0.0))
         if not (bid > 0 and ask > 0):
-            return {}, "No live bid/ask — cannot compute coin mid for this option.", True
+            return {}, {}, "No live bid/ask — cannot compute coin mid for this option.", True
         coin_mid = (bid + ask) / 2.0
 
         # USD conversion via index spot
@@ -1960,39 +1971,54 @@ def get_option(inst_name: str) -> tuple[dict, str, bool]:
 
         # Pretty print (same style as your screenshot)
         coin_sym = base
-        res = {
+        raw = {
+            PRETTY_PARAMETERS.INSTRUMENT_NAME.value: inst_name,
+            PRETTY_PARAMETERS.SPOT_PRICE.value: (round(S, 3) if S else None),
+            PRETTY_PARAMETERS.STRIKE_PRICE.value: (round(K, 3) if K else None),
+            PRETTY_PARAMETERS.OPTION_TYPE.value: opt_type.upper(),
+            PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value: (round(dte_days) if dte_days else None),
+            PRETTY_PARAMETERS.INTEREST_RATE.value: (round(r*100, 2) if r else None),
+            PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')': (round(coin_mid, 6) if coin_mid else None),
+            PRETTY_PARAMETERS.OPTION_MID.value+' (USD)': (round(usd_mid, 2) if usd_mid else None),
+            PRETTY_PARAMETERS.FAIR_PRICE.value: (round(fair_price, 2) if fair_price else None),
+            PRETTY_PARAMETERS.PRICE_DIFF.value: (round(diff, 2) if diff else None),
+            PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value: (round(iv*100, 2) if iv else None),
+            PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value: (round(rv, 2) if rv else None),
+            PRETTY_PARAMETERS.STATUS.value: status
+        }
+        processed = {
             PRETTY_PARAMETERS.INSTRUMENT_NAME.value: inst_name,
             PRETTY_PARAMETERS.SPOT_PRICE.value: fnum(S),
             PRETTY_PARAMETERS.STRIKE_PRICE.value: fnum(K),
             PRETTY_PARAMETERS.OPTION_TYPE.value: opt_type.upper(),
-            PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value: dte_days,
+            PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value: fnum(dte_days, 1),
             PRETTY_PARAMETERS.INTEREST_RATE.value: pct(r),
-            PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')': coin_mid,
-            PRETTY_PARAMETERS.OPTION_MID.value+' (USD)': usd_mid,
-            PRETTY_PARAMETERS.FAIR_PRICE.value: fair_price,
-            PRETTY_PARAMETERS.PRICE_DIFF.value: diff,
+            PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')': fnum(coin_mid, 6),
+            PRETTY_PARAMETERS.OPTION_MID.value+' (USD)': fnum(usd_mid, 2),
+            PRETTY_PARAMETERS.FAIR_PRICE.value: fnum(fair_price, 2),
+            PRETTY_PARAMETERS.PRICE_DIFF.value: fnum(diff, 2),
             PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value: pct(iv),
             PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value: pct(rv),
             PRETTY_PARAMETERS.STATUS.value: status
         }
         msg = (
-            f"*{res[PRETTY_PARAMETERS.INSTRUMENT_NAME.value]} — Option Valuation*\n"
+            f"*{raw[PRETTY_PARAMETERS.INSTRUMENT_NAME.value]} — Option Valuation*\n"
             "```\n"
-            f"{(PRETTY_PARAMETERS.SPOT_PRICE.value+' (USD)'):<18}: {res[PRETTY_PARAMETERS.SPOT_PRICE.value]:>12}\n"
-            f"{(PRETTY_PARAMETERS.STRIKE_PRICE.value+' (USD)'):<18}: {res[PRETTY_PARAMETERS.STRIKE_PRICE.value]:>12}\n"
-            f"{PRETTY_PARAMETERS.OPTION_TYPE.value:<18}: {res[PRETTY_PARAMETERS.OPTION_TYPE.value]:>12}\n"
-            f"{(PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value+' (days)'):<18}: {res[PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value]:>12.1f}\n"
-            f"{PRETTY_PARAMETERS.INTEREST_RATE.value:<18}: {res[PRETTY_PARAMETERS.INTEREST_RATE.value]:>12}\n"
-            f"{(PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')'):<18}: {res[PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')']:>12,.6f}\n"
-            f"{(PRETTY_PARAMETERS.OPTION_MID.value+' (USD)'):<18}: {res[PRETTY_PARAMETERS.OPTION_MID.value+' (USD)']:>12,.2f}\n"
-            f"{(PRETTY_PARAMETERS.FAIR_PRICE.value+' (USD)'):<18}: {res[PRETTY_PARAMETERS.FAIR_PRICE.value]:>12,.2f}\n"
-            f"{PRETTY_PARAMETERS.PRICE_DIFF.value+' (USD)':<18}: {res[PRETTY_PARAMETERS.PRICE_DIFF.value]:>12,.2f}\n"
-            f"{PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value:<18}: {res[PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value]:>12}\n"
-            f"{PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value:<18}: {res[PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value]:>12}\n"
+            f"{(PRETTY_PARAMETERS.SPOT_PRICE.value+' (USD)'):<18}: {raw[PRETTY_PARAMETERS.SPOT_PRICE.value]:>12}\n"
+            f"{(PRETTY_PARAMETERS.STRIKE_PRICE.value+' (USD)'):<18}: {raw[PRETTY_PARAMETERS.STRIKE_PRICE.value]:>12}\n"
+            f"{PRETTY_PARAMETERS.OPTION_TYPE.value:<18}: {raw[PRETTY_PARAMETERS.OPTION_TYPE.value]:>12}\n"
+            f"{(PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value+' (days)'):<18}: {raw[PRETTY_PARAMETERS.DAYS_TO_EXPIRY.value]:>12.1f}\n"
+            f"{PRETTY_PARAMETERS.INTEREST_RATE.value:<18}: {raw[PRETTY_PARAMETERS.INTEREST_RATE.value]:>12}\n"
+            f"{(PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')'):<18}: {raw[PRETTY_PARAMETERS.OPTION_MID.value+' (' + coin_sym + ')']:>12,.6f}\n"
+            f"{(PRETTY_PARAMETERS.OPTION_MID.value+' (USD)'):<18}: {raw[PRETTY_PARAMETERS.OPTION_MID.value+' (USD)']:>12,.2f}\n"
+            f"{(PRETTY_PARAMETERS.FAIR_PRICE.value+' (USD)'):<18}: {raw[PRETTY_PARAMETERS.FAIR_PRICE.value]:>12,.2f}\n"
+            f"{PRETTY_PARAMETERS.PRICE_DIFF.value+' (USD)':<18}: {raw[PRETTY_PARAMETERS.PRICE_DIFF.value]:>12,.2f}\n"
+            f"{PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value:<18}: {raw[PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value]:>12}\n"
+            f"{PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value:<18}: {raw[PRETTY_PARAMETERS.REALIZED_VOLATILITY_YZ.value]:>12}\n"
              "```\n"
-            f"{res[PRETTY_PARAMETERS.STATUS.value]}"
+            f"{raw[PRETTY_PARAMETERS.STATUS.value]}"
         )
-        return res, msg, False
+        return raw, processed, msg, False
     except Exception as e:
         logging.exception(e)
         return {}, "Error analyzing option.", True
@@ -2032,7 +2058,7 @@ async def greeks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not context.args:
         await update.message.reply_text("Usage: /greeks BTC-31DEC25-60000-C")
         return
-    _, msg, is_error = get_greeks(context.args[0].upper())
+    _, _, msg, is_error = get_greeks(context.args[0].upper())
     if is_error:
         await update.message.reply_text(msg)
         return
@@ -2042,11 +2068,16 @@ def get_greeks(inst_name: str) -> tuple[dict, str, bool]:
     """
     /greeks [INSTRUMENT_NAME] - Show option Greeks (Delta, Gamma, Vega, Theta, Rho)
     Example: /greeks BTC-31DEC25-6000-C
+    Returns
+        raw: dict of raw val (any type)
+        processed: dict of processed val in valid dp (str type)
+        msg: telegram msg (str type)
+        is_error:  True/False (bool type)
     """
     data, err = bs_greeks_wrapper(inst_name)
     if err: return {}, err, True
     g_mkt = data["g_mkt"]
-    res = {
+    raw = {
         PRETTY_PARAMETERS.INSTRUMENT_NAME.value: inst_name,
         PRETTY_PARAMETERS.DELTA.value: g_mkt['delta'],
         PRETTY_PARAMETERS.GAMMA.value: g_mkt['gamma'],
@@ -2054,16 +2085,24 @@ def get_greeks(inst_name: str) -> tuple[dict, str, bool]:
         PRETTY_PARAMETERS.THETA.value: g_mkt['theta_per_day'],
         PRETTY_PARAMETERS.RHO.value: g_mkt['rho_per_1pct']
     }
+    processed = {
+        PRETTY_PARAMETERS.INSTRUMENT_NAME.value: inst_name,
+        PRETTY_PARAMETERS.DELTA.value: fnum(g_mkt['delta'], 4),
+        PRETTY_PARAMETERS.GAMMA.value: fnum(g_mkt['gamma'], 6),
+        PRETTY_PARAMETERS.VEGA.value: fnum(g_mkt['vega_per_1pct'], 4),
+        PRETTY_PARAMETERS.THETA.value: fnum(g_mkt['theta_per_day'], 4),
+        PRETTY_PARAMETERS.RHO.value: fnum(g_mkt['rho_per_1pct'], 4)
+    }
     msg = (
-        f"*{res[PRETTY_PARAMETERS.INSTRUMENT_NAME.value]} — Greeks (mid→last(fresh)→mark)*\n```\n"
-        f"{res[PRETTY_PARAMETERS.DELTA.value]}  : {g_mkt['delta']:.4f}\n"
-        f"{res[PRETTY_PARAMETERS.GAMMA.value]}  : {g_mkt['gamma']:.6f}\n"
-        f"{res[PRETTY_PARAMETERS.VEGA.value]}   : {g_mkt['vega_per_1pct']:.4f}\n"
-        f"{res[PRETTY_PARAMETERS.THETA.value]}  : {g_mkt['theta_per_day']:.4f}\n"
-        f"{res[PRETTY_PARAMETERS.RHO.value]}    : {g_mkt['rho_per_1pct']:.4f}\n"
+        f"*{raw[PRETTY_PARAMETERS.INSTRUMENT_NAME.value]} — Greeks (mid→last(fresh)→mark)*\n```\n"
+        f"{PRETTY_PARAMETERS.DELTA.value}  : {g_mkt['delta']:.4f}\n"
+        f"{PRETTY_PARAMETERS.GAMMA.value}  : {g_mkt['gamma']:.6f}\n"
+        f"{PRETTY_PARAMETERS.VEGA.value}   : {g_mkt['vega_per_1pct']:.4f}\n"
+        f"{PRETTY_PARAMETERS.THETA.value}  : {g_mkt['theta_per_day']:.4f}\n"
+        f"{PRETTY_PARAMETERS.RHO.value}    : {g_mkt['rho_per_1pct']:.4f}\n"
         "```"
     )
-    return res, msg, False
+    return raw, processed, msg, False
 
 # === MAIN ===
 def main():

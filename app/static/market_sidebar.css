@@ -1,3 +1,4 @@
+/* Base Sidebar Price Info */
 .compact-table {
     background: #191b1f;
     border-radius: 0.45rem;
@@ -44,3 +45,95 @@
     letter-spacing: 0.01em;
     padding-bottom: 0.17rem;
 }
+
+
+/* Runs Table and Hover Tooltips */
+.sticky-table-container {
+    max-height: 285px;    /* Height for ~8 rows */
+    overflow-y: auto;
+    border-radius: 10px;
+    margin-bottom: 32px;  /* Space below the table for next content */
+    background: #16191e;
+    box-shadow: 0 1px 6px #181c2088;
+    border: 1px solid #222228;
+}
+.option-table { width:100%; font-size:1em; border-collapse:collapse; font-family:inherit;}
+.option-table th, .option-table td { 
+    padding:7px 11px;
+    line-height: 1.13;
+    background:#16191e; 
+    color:#e6eaf3; 
+    border-bottom:1px solid #222229; 
+    text-align:center;
+}
+.option-table th { 
+    background:#23272E; 
+    color:#b5c3df; 
+    font-weight:600; 
+    font-size:0.94em; 
+    border-top:1.5px solid #23272E;
+    position: sticky;
+    top: 0px;
+    z-index: 2;
+}
+.option-table tr {
+    height: 32px;
+    font-size: 0.94em;
+}
+.scrollable-tbody::-webkit-scrollbar {
+    width: 6px;
+    background: transparent;
+}
+.scrollable-tbody::-webkit-scrollbar-thumb {
+    background: #23272e;
+    border-radius: 6px;
+}
+.scrollable-tbody::-webkit-scrollbar-track {
+    background: transparent;
+}
+.hover-contract {
+    position:relative;
+    cursor:pointer;
+    overflow: visible !important;
+}
+.tooltip-popup {
+    opacity:0;
+    visibility:hidden;
+    position:absolute;
+    left:110%;
+    top:50%;
+    transform:translateY(-50%);
+    min-width:370px;
+    max-width:400px;
+    background:#1A1D22;
+    color:#e6eaf3;
+    border-radius:10px;
+    box-shadow:0 2px 24px #01182a70;
+    padding:17px 25px;
+    font-size:0.98em;
+    z-index:9999;
+    border:1.5px solid #282a32;
+    transition:opacity .20s;
+    text-align: left;
+    display:flex;
+    flex-direction:row;
+    gap:20px;
+}
+.hover-contract:hover .tooltip-popup {
+    opacity:1 !important; visibility:visible !important;
+}
+.valuation-column {
+    display: flex;
+    flex-direction: column;
+    flex:auto;  /* decides how extra space distributed among cols in flex container */
+}
+.greeks-column {
+    display: flex;
+    flex-direction: column;
+    flex:auto;
+}
+.valuation-column {border-right:1.2px solid #272934;padding-right:18px;}
+.greeks-column {padding-left:18px;}
+.tooltip-title { color:#6fe2bb; font-weight:700; font-size:1.03em; margin-bottom:8px;}
+.greeks-title {color:#ffbf7a; font-weight:700; font-size:1.03em; margin-bottom:8px;}
+.tooltip-row { color:#bdc8d8; font-size:0.85em; margin-bottom:2px;}

@@ -12,6 +12,7 @@ init_db()
 
 ## ----------------------------------------------
 # Start of UI
+st.set_page_config(layout="wide")
 st.title("***OptiML***")
 st.divider()
 

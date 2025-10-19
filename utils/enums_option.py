@@ -47,6 +47,7 @@ class PRETTY_PARAMETERS(Enum):
     OPTION_MID = "Option Mid"
     FAIR_PRICE = "Fair Price"
     PRICE_DIFF = "Price Diff"
+    OPEN_INTEREST = "Open Interest"
     DELTA = "Delta"
     GAMMA = "Gamma"
     THETA = "Theta"

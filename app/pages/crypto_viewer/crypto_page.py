@@ -9,11 +9,71 @@ from utils.telegram.telegram_utils import (
 from utils.enums_option import (
     PRETTY_PARAMETERS, PRETTY_RUNS_TYPE,
 )
-from utils.string_formatter import inst_name_formatter
+from utils.string_formatter import (
+    inst_name_formatter,
+)
 
 def load_sidebar_css(css_file_path: str) -> None:
     with open(css_file_path, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+def render_contract_table_with_side_tooltips(
+    contracts_df, valuation_df, greeks_df, base
+):
+    html = '''
+    <div class="sticky-table-container">
+    <table class="option-table"><thead><tr>
+    '''
+    # Table headers
+    for col in contracts_df.columns:
+        html += f'<th>{col}</th>'
+    html += '</tr></thead><tbody>'
+
+
+    for i, row in contracts_df.iterrows():
+        inst_name = inst_name_formatter(
+            base, row["Date"], "".join(row["Strike"].split(",")), str(row["Type"])[0]
+        )
+        valuation_row = valuation_df[valuation_df[valuation_df.columns[0]] == inst_name].squeeze() if not valuation_df.empty else None
+        greeks_row = greeks_df[greeks_df[greeks_df.columns[0]] == inst_name].squeeze() if not greeks_df.empty else None
+
+
+        # --- Valuation and Greeks columns ---
+        valuation_html = "<div class='valuation-column'><div class='tooltip-title'>Valuation</div>"
+        if valuation_row is not None and not valuation_row.empty:
+            for k, v in valuation_row[1:].items():
+                valuation_html += f"<div class='tooltip-row'>{k}: <b>{v}</b></div>"
+        else:
+            valuation_html += "<div class='tooltip-row'>No data</div>"
+        valuation_html += "</div>"
+
+
+        greeks_html = "<div class='greeks-column'><div class='greeks-title'>Greeks</div>"
+        if greeks_row is not None and not greeks_row.empty:
+            for k, v in greeks_row[1:].items():
+                greeks_html += f"<div class='tooltip-row'>{k}: <b>{v}</b></div>"
+        else:
+            greeks_html += "<div class='tooltip-row'>No data</div>"
+        greeks_html += "</div>"
+
+
+        tooltip_html = f"<div class='tooltip-popup'>{valuation_html}{greeks_html}</div>"
+
+
+        # --- Render row, only first cell clickable/hoverable
+        html += "<tr>"
+        first_cell = True
+        for val in row:
+            if first_cell:
+                html += f"<td class='hover-contract'>{val}{tooltip_html}</td>"
+                first_cell = False
+            else:
+                html += f"<td>{val}</td>"
+        html += "</tr>"
+
+
+    html += '</tbody></table>'
+    return html
 
 def show_crypto_page():
     load_sidebar_css(os.path.join("app", "static", "market_sidebar.css"))
@@ -38,14 +98,15 @@ def show_crypto_page():
     
     # load all runs' options valuations and greeks
     inst_dict = {}
-    for run_type, data in runs.items():
+    for run_type, (raw_data, processed_data) in runs.items():
         inst_dict[run_type] = []
-        for cols in data:
+        for cols in raw_data:
             # data = [date, tenor, strike, action_symbol, type, premium_usd, premium_coin, open_interest]
             # inst_name = "BTC-30DEC22-40000-C" or "ETH-30DEC22-40000-P"
             inst_name = inst_name_formatter(base, cols[0], cols[2], cols[4][0])
             inst_dict[run_type].append(inst_name)
     all_valuations_greeks = show_all_option_valuations_greeks(inst_dict)
+    print("VALS-GREEKS-DONE")  # todo: remove when done
 
     with tab_market:
         st.header(f"{base} Market Chart Overview")
@@ -63,7 +124,16 @@ def show_crypto_page():
             ["Buy Call", "Buy Put", "Sell Call", "Sell Put"]
         )
         # runs_cols, valuation_cols, greeks_cols
-        runs_cols = ["Date", "DTE", "Strike", "B/S", "Type", "USD", base, "OI"]
+        runs_cols = [
+            "Date",
+            "DTE",
+            PRETTY_PARAMETERS.STRIKE_PRICE.value,
+            "B/S",
+            PRETTY_PARAMETERS.OPTION_TYPE.value,
+            "USD",
+            base,
+            PRETTY_PARAMETERS.OPEN_INTEREST.value
+        ]
         valuation_cols = [
             PRETTY_PARAMETERS.INSTRUMENT_NAME.value,
             PRETTY_PARAMETERS.SPOT_PRICE.value,
@@ -97,6 +167,10 @@ def show_crypto_page():
             PRETTY_RUNS_TYPE.SELL_PUT.value
         ]
         for run_type in run_types:
+            runs_dfs[run_type] = pd.DataFrame(
+                                    runs[run_type][1],
+                                    columns=runs_cols
+                                ) if runs[run_type] else pd.DataFrame(columns=runs_cols)
             valuation_dfs[run_type] = pd.DataFrame(
                                         all_valuations_greeks[run_type]["valuations"],
                                         columns=valuation_cols
@@ -109,11 +183,29 @@ def show_crypto_page():
         for tab, run in zip(runs_tabs, run_types):
             with tab:
                 st.subheader(f"{base} {run} — ATM by Expiry")
-                # --- Display Option Contracts ---
-                st.dataframe(runs_dfs[run], height=310, hide_index=True)
+                # --- Display Option Contracts (Custom Table) ---
+                st.markdown(
+                    render_contract_table_with_side_tooltips(
+                        contracts_df=runs_dfs[run],
+                        valuation_df=valuation_dfs[run],
+                        greeks_df=greeks_dfs[run],
+                        base=base
+                    ),
+                    unsafe_allow_html=True
+                )
+                # --- Display Option Contracts (Streamlit DF) ---
+                st.dataframe(
+                    runs_dfs[run],
+                    height=310,
+                    hide_index=True
+                )
                 # --- Display Option Valuations and Greeks ---
                 st.subheader("Option Valuations")
-                st.dataframe(valuation_dfs[run], height=310, hide_index=True)
+                st.dataframe(
+                    valuation_dfs[run],
+                    height=310,
+                    hide_index=True,
+                )
                 st.subheader("Option Greeks")
                 st.dataframe(greeks_dfs[run], height=310, hide_index=True)
 
@@ -143,7 +235,6 @@ def select_base() -> str:
     base = st.sidebar.selectbox("Select Base", ["BTC", "ETH",], index=0)  # todo: change to dynamic from an exchange
     data = show_price(base)
     if data:
-        #st.sidebar.markdown("\n".join(data), unsafe_allow_html=True)
         idx_label, spot, mark, mid, bid, ask, change, high, low, volume, volchange = data
         change_color = "#ef5350" if "-" in str(change) else "#26a69a"
 
