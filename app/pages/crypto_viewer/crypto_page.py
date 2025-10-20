@@ -142,17 +142,41 @@ def render_contract_table_with_side_tooltips(
     html += '</tbody></table>'
     return html
 
-def render_console_style_telegram_block(label_value_lines: list, title: str):
+def render_instrument_probability(label_value_lines: list, title: str):
     # label_value_lines: list of (label, value)
-    block = "<div class='console-telegram-block'>"
-    block += f"<div class='console-telegram-block-title'>{title} — ITM Probability</div>"
-    block += "<pre>"
+    block = [f"{title} — ITM Probability\n"]
     for label, value in label_value_lines:
-        # Change the padding to desired spacing
-        block += f"{label.ljust(18)} : {value}\n"
-    block += "</pre></div>"
-    return block
+        block.append(f"{label.ljust(18)} : {value}")
+        if "MC (GBM)" in label:
+            block.append("-"*40+"\n")
+    return chr(10).join(block)
 
+def show_prob_page(inst_dfs: dict, run_type: str, inst_dict: dict):
+    inst_table_col, search_col = st.columns([3, 1])
+    with inst_table_col:
+        st.dataframe(inst_dfs[run_type], hide_index=True)
+    with search_col:
+        key_name = [w[0] for w in run_type.split(" ")]
+        selected_inst_name = st.selectbox(
+                                "Select instrument",
+                                inst_dict[run_type],
+                                index=None,
+                                accept_new_options=False,
+                                key=f"selectbox_prob_instrument_{"".join(key_name)}"
+                            )
+        prob_input = None
+        if selected_inst_name:
+            prob_res = show_prob(selected_inst_name)
+            prob_input = [(k, v) for k, v in prob_res.items()]
+    # show prob result of selected instrument
+    if prob_input:
+        st.markdown("---")
+        st.text("Instrument Probability")
+        st.code(
+            render_instrument_probability(
+                prob_input, title=selected_inst_name
+            )
+        )
 
 def show_crypto_page():
     streamlit_cache = init_st_cache()  # todo: review caching
@@ -318,7 +342,7 @@ def show_crypto_page():
 
     with tab_vol:
         st.header("Volatility Surface and Forecasts")
-        vol_tabs = st.tabs(
+        BC_tab, BP_tab, SC_tab, SP_tab = st.tabs(
             ["Buy Call", "Buy Put", "Sell Call", "Sell Put"]
         )
         inst_dfs = {}
@@ -328,32 +352,15 @@ def show_crypto_page():
                                     columns=["Instrument Name"]
                                 ) if inst_dict[run_type] else pd.DataFrame(columns=["Instrument Name"])
         # Function calls to HAR/GARCH forecasts, IV surface, etc.
-        for tab, run_type in zip(vol_tabs, run_types):
-            with tab:
-                inst_table_col, search_col = st.columns([3, 1])
-                with inst_table_col:
-                    st.dataframe(inst_dfs[run_type], hide_index=True)
-                with search_col:
-                    selected_inst_name = st.selectbox(
-                                            "Select instrument",
-                                            inst_dict[run_type],
-                                            index=0,
-                                            key="selectbox_prob_instrument"
-                                        )
-                    prob_res = show_prob(selected_inst_name)
-                    prob_input = [(k, v) for k, v in prob_res.items()]
-                # show prob result of selected instrument
-                if prob_input:
-                    st.markdown("---")
-                    st.text("Instrument Probability")
-                    st.markdown(
-                        render_console_style_telegram_block(
-                            prob_input, title=selected_inst_name
-                        ),
-                        unsafe_allow_html=True
-                    )
-                    #send_command_to_telegram("Checked Volatility surface.")
-
+        with BC_tab:
+            show_prob_page(inst_dfs, PRETTY_RUNS_TYPE.BUY_CALL.value, inst_dict)
+        with BP_tab:
+            show_prob_page(inst_dfs, PRETTY_RUNS_TYPE.BUY_PUT.value, inst_dict)
+        with SC_tab:
+            show_prob_page(inst_dfs, PRETTY_RUNS_TYPE.SELL_CALL.value, inst_dict)
+        with SP_tab:
+            show_prob_page(inst_dfs, PRETTY_RUNS_TYPE.SELL_PUT.value, inst_dict)
+                
     with tab_trading:
         st.header("Trade Actions")
         action = st.selectbox("Action", ["Buy Call", "Buy Put", "Sell Call", "Sell Put"])
