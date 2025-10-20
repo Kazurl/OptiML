@@ -41,7 +41,10 @@ class PRETTY_PARAMETERS(Enum):
     REALIZED_VOLATILITY = "Realized Vol"
     REALIZED_VOLATILITY_YZ = "Realized Vol (YZ)"
     IMPLIED_VOLATILITY = "Market IV"
+    BS_IMPLIED_VOLATILITY = "IV (BS)"
+    LOCAL_SURFACE_IV_FIT = "Surf (Local fit)"
     DAYS_TO_EXPIRY = "Expiry (days)"
+    YEARS_TO_EXPIRY = "T (years)"
     DIVIDEND_YIELD = "Dividend Yield"
     TIME_STEPS = "Time Steps (N)"
     OPTION_MID = "Option Mid"
@@ -60,3 +63,7 @@ class PRETTY_RUNS_TYPE(Enum):
     BUY_PUT = "Buy Put"
     SELL_CALL = "Sell Call"
     SELL_PUT = "Sell Put"
+
+class BASE_TYPES(Enum):
+    BITCOIN = "BTC"
+    ETHEREUM = "ETH"

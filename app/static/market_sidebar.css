@@ -137,3 +137,31 @@
 .tooltip-title { color:#6fe2bb; font-weight:700; font-size:1.03em; margin-bottom:8px;}
 .greeks-title {color:#ffbf7a; font-weight:700; font-size:1.03em; margin-bottom:8px;}
 .tooltip-row { color:#bdc8d8; font-size:0.85em; margin-bottom:2px;}
+
+
+/* Run Option Prob with Search */
+.console-telegram-block {
+    background: #16191E;
+    color: #e6eaf3;
+    font-family: 'Fira Mono', 'Consolas', 'Menlo', 'Monaco', monospace;
+    font-size: 1.06em;
+    border-radius: 10px;
+    box-shadow: 0 1px 6px #181C2088;
+    border: 1.1px solid #222229;
+    padding: 22px 32px 17px 32px;
+    margin-bottom: 22px;
+    margin-top: 14px;
+    width: fit-content;
+    min-width: 320px;
+    max-width: 620px;
+}
+.console-telegram-block-title {
+    font-weight: 700;
+    color: #6fe2bb;
+    font-size: 1.14em;
+    margin-bottom: 0.75em;
+    letter-spacing: 0.01em;
+}
+.console-telegram-block pre {
+    margin: 0; padding: 0; background: none; color: inherit; border: none;
+}

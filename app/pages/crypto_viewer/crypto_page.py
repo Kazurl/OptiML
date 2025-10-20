@@ -1,13 +1,20 @@
 import os
 import pandas as pd
 import streamlit as st
+import time
+
+from app.utils.cache import init_st_cache
+from app.utils.enums_cache import (
+    CACHE_KEYS
+)
 from utils.telegram.telegram_utils import (
     show_all_option_valuations_greeks,
     show_all_runs,
     show_price,
+    show_prob,
 )
 from utils.enums_option import (
-    PRETTY_PARAMETERS, PRETTY_RUNS_TYPE,
+    BASE_TYPES, PRETTY_PARAMETERS, PRETTY_RUNS_TYPE,
 )
 from utils.string_formatter import (
     inst_name_formatter,
@@ -17,9 +24,69 @@ def load_sidebar_css(css_file_path: str) -> None:
     with open(css_file_path, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
+def show_base_info(data: list) -> str:
+    if data:
+        idx_label, spot, mark, mid, bid, ask, change, high, low, volume, volchange = data
+        change_color = "#ef5350" if "-" in str(change) else "#26a69a"
+
+        st.sidebar.markdown(
+            f"""
+                <div class="compact-table">
+                    <div class="compact-header">{idx_label}</div>
+                    <span class="compact-subheader">Deribit Market Snapshot </span>
+                    <div class="compact-row" style="margin-bottom:0.21rem;">
+                        <span class="compact-label">Index (Spot)</span>
+                        <span class="compact-mainprice">{spot}</span>
+                    </div>
+                    <div class="compact-row">
+                        <span class="compact-label">Mark</span>
+                        <span class="compact-value">{mark}</span>
+                    </div>
+                    <div class="compact-row">
+                        <span class="compact-label">Mid</span>
+                        <span class="compact-value">{mid}</span>
+                    </div>
+                    <div class="compact-row">
+                        <span class="compact-label">Bid</span>
+                        <span class="compact-value">{bid}</span>
+                    </div>
+                    <div class="compact-row">
+                        <span class="compact-label">Ask</span>
+                        <span class="compact-value">{ask}</span>
+                    </div>
+                    <div class="compact-row">
+                        <span class="compact-label">24h Chg</span>
+                        <span style=f"font-weight:700; color:{change_color}; font-size:1.05rem; letter-spacing: 0.01em;">{change}</span>
+                    </div>
+                    <div class="compact-row">
+                        <span class="compact-label">High</span>
+                        <span class="compact-value">{high}</span>
+                    </div>
+                    <div class="compact-row">
+                        <span class="compact-label">Low</span>
+                        <span class="compact-value">{low}</span>
+                    </div>
+                    <div class="compact-row">
+                        <span class="compact-label">Vol (BTC)</span>
+                        <span class="compact-value">{volume}</span>
+                    </div>
+                    <div class="compact-row">
+                        <span class="compact-label">Δ 1D Vol</span>
+                        <span class="compact-value">{volchange}</span>
+                    </div>
+                </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.sidebar.warning("Price data unavailable.")
+
 def render_contract_table_with_side_tooltips(
     contracts_df, valuation_df, greeks_df, base
-):
+) -> str:
+    """
+    Main Runs Contracts Table with 'Valuations & Greeks' data tooltips upon hovering of first cell.
+    """
     html = '''
     <div class="sticky-table-container">
     <table class="option-table"><thead><tr>
@@ -42,7 +109,7 @@ def render_contract_table_with_side_tooltips(
         valuation_html = "<div class='valuation-column'><div class='tooltip-title'>Valuation</div>"
         if valuation_row is not None and not valuation_row.empty:
             for k, v in valuation_row[1:].items():
-                valuation_html += f"<div class='tooltip-row'>{k}: <b>{v}</b></div>"
+                valuation_html += f"<div class='tooltip-row'>{k}:     <b>{v}</b></div>"
         else:
             valuation_html += "<div class='tooltip-row'>No data</div>"
         valuation_html += "</div>"
@@ -51,7 +118,7 @@ def render_contract_table_with_side_tooltips(
         greeks_html = "<div class='greeks-column'><div class='greeks-title'>Greeks</div>"
         if greeks_row is not None and not greeks_row.empty:
             for k, v in greeks_row[1:].items():
-                greeks_html += f"<div class='tooltip-row'>{k}: <b>{v}</b></div>"
+                greeks_html += f"<div class='tooltip-row'>{k}:     <b>{v}</b></div>"
         else:
             greeks_html += "<div class='tooltip-row'>No data</div>"
         greeks_html += "</div>"
@@ -75,15 +142,44 @@ def render_contract_table_with_side_tooltips(
     html += '</tbody></table>'
     return html
 
+def render_console_style_telegram_block(label_value_lines: list, title: str):
+    # label_value_lines: list of (label, value)
+    block = "<div class='console-telegram-block'>"
+    block += f"<div class='console-telegram-block-title'>{title} — ITM Probability</div>"
+    block += "<pre>"
+    for label, value in label_value_lines:
+        # Change the padding to desired spacing
+        block += f"{label.ljust(18)} : {value}\n"
+    block += "</pre></div>"
+    return block
+
+
 def show_crypto_page():
+    streamlit_cache = init_st_cache()  # todo: review caching
     load_sidebar_css(os.path.join("app", "static", "market_sidebar.css"))
 
     st.title("Crypto Trading Desk")
     st.caption("This section provides tools for cryptocurrency market analysis and trading actions.")
     
-    base = select_base()
+    # base = streamlit_cache.get_cached(CACHE_KEYS.BASE.value)
+    # if not base:
+    #     base = st.sidebar.selectbox("Select Base", ["BTC", "ETH",], index=0) # todo: change to dynamic from an exchange
+    #     streamlit_cache.set_cache(CACHE_KEYS.BASE.value, base)
+    base = st.sidebar.selectbox("Select Base", ["BTC", "ETH",], index=0)
+    
+    # data = streamlit_cache.get_cached(CACHE_KEYS.PRICE.value)
+    # if not data:
+    #     data = show_price(base)
+    #     streamlit_cache.set_cache(CACHE_KEYS.PRICE.value, data)
+    data = show_price(base)
+    show_base_info(data)
+
     st.write(f":money_with_wings: Working with {base} Market on Deribit!")
     # sample data
+    # runs = streamlit_cache.get_cached(CACHE_KEYS.RUNS.value)
+    # if not runs:
+    #     runs = show_all_runs(base)
+    #     streamlit_cache.set_cache(CACHE_KEYS.RUNS.value, runs)
     runs = show_all_runs(base)
 
     tab_market, tab_options, tab_vol, tab_trading, tab_telegram = st.tabs(
@@ -97,6 +193,18 @@ def show_crypto_page():
     )
     
     # load all runs' options valuations and greeks
+    # all_valuations_greeks = streamlit_cache.get_cached(CACHE_KEYS.ALL_VALUATIONS_GREEKS.value)
+    # if not all_valuations_greeks:
+    #     inst_dict = {}
+    #     for run_type, (raw_data, processed_data) in runs.items():
+    #         inst_dict[run_type] = []
+    #         for cols in raw_data:
+    #             # data = [date, tenor, strike, action_symbol, type, premium_usd, premium_coin, open_interest]
+    #             # inst_name = "BTC-30DEC22-40000-C" or "ETH-30DEC22-40000-P"
+    #             inst_name = inst_name_formatter(base, cols[0], cols[2], cols[4][0])
+    #             inst_dict[run_type].append(inst_name)
+    #     all_valuations_greeks = show_all_option_valuations_greeks(inst_dict)
+    #     streamlit_cache.set_cache(CACHE_KEYS.ALL_VALUATIONS_GREEKS.value, all_valuations_greeks)
     inst_dict = {}
     for run_type, (raw_data, processed_data) in runs.items():
         inst_dict[run_type] = []
@@ -106,7 +214,6 @@ def show_crypto_page():
             inst_name = inst_name_formatter(base, cols[0], cols[2], cols[4][0])
             inst_dict[run_type].append(inst_name)
     all_valuations_greeks = show_all_option_valuations_greeks(inst_dict)
-    print("VALS-GREEKS-DONE")  # todo: remove when done
 
     with tab_market:
         st.header(f"{base} Market Chart Overview")
@@ -211,10 +318,41 @@ def show_crypto_page():
 
     with tab_vol:
         st.header("Volatility Surface and Forecasts")
-        # Add your function calls to HAR/GARCH forecasts, IV surface, etc.
-        # E.g. st.write(forecast results)
-        st.write("Feature under development...")
-        #send_command_to_telegram("Checked Volatility surface.")
+        vol_tabs = st.tabs(
+            ["Buy Call", "Buy Put", "Sell Call", "Sell Put"]
+        )
+        inst_dfs = {}
+        for run_type in run_types:
+            inst_dfs[run_type] = pd.DataFrame(
+                                    inst_dict[run_type],
+                                    columns=["Instrument Name"]
+                                ) if inst_dict[run_type] else pd.DataFrame(columns=["Instrument Name"])
+        # Function calls to HAR/GARCH forecasts, IV surface, etc.
+        for tab, run_type in zip(vol_tabs, run_types):
+            with tab:
+                inst_table_col, search_col = st.columns([3, 1])
+                with inst_table_col:
+                    st.dataframe(inst_dfs[run_type], hide_index=True)
+                with search_col:
+                    selected_inst_name = st.selectbox(
+                                            "Select instrument",
+                                            inst_dict[run_type],
+                                            index=0,
+                                            key="selectbox_prob_instrument"
+                                        )
+                    prob_res = show_prob(selected_inst_name)
+                    prob_input = [(k, v) for k, v in prob_res.items()]
+                # show prob result of selected instrument
+                if prob_input:
+                    st.markdown("---")
+                    st.text("Instrument Probability")
+                    st.markdown(
+                        render_console_style_telegram_block(
+                            prob_input, title=selected_inst_name
+                        ),
+                        unsafe_allow_html=True
+                    )
+                    #send_command_to_telegram("Checked Volatility surface.")
 
     with tab_trading:
         st.header("Trade Actions")
@@ -230,63 +368,3 @@ def show_crypto_page():
         st.header("Telegram Log")
         # Show a log of all sent commands/actions (implement log retrieval)
         st.write("Telegram command log displayed here.")
-
-def select_base() -> str:
-    base = st.sidebar.selectbox("Select Base", ["BTC", "ETH",], index=0)  # todo: change to dynamic from an exchange
-    data = show_price(base)
-    if data:
-        idx_label, spot, mark, mid, bid, ask, change, high, low, volume, volchange = data
-        change_color = "#ef5350" if "-" in str(change) else "#26a69a"
-
-        st.sidebar.markdown(
-            f"""
-                <div class="compact-table">
-                    <div class="compact-header">{idx_label}</div>
-                    <span class="compact-subheader">Deribit Market Snapshot </span>
-                    <div class="compact-row" style="margin-bottom:0.21rem;">
-                        <span class="compact-label">Index (Spot)</span>
-                        <span class="compact-mainprice">{spot}</span>
-                    </div>
-                    <div class="compact-row">
-                        <span class="compact-label">Mark</span>
-                        <span class="compact-value">{mark}</span>
-                    </div>
-                    <div class="compact-row">
-                        <span class="compact-label">Mid</span>
-                        <span class="compact-value">{mid}</span>
-                    </div>
-                    <div class="compact-row">
-                        <span class="compact-label">Bid</span>
-                        <span class="compact-value">{bid}</span>
-                    </div>
-                    <div class="compact-row">
-                        <span class="compact-label">Ask</span>
-                        <span class="compact-value">{ask}</span>
-                    </div>
-                    <div class="compact-row">
-                        <span class="compact-label">24h Chg</span>
-                        <span style=f"font-weight:700; color:{change_color}; font-size:1.05rem; letter-spacing: 0.01em;">{change}</span>
-                    </div>
-                    <div class="compact-row">
-                        <span class="compact-label">High</span>
-                        <span class="compact-value">{high}</span>
-                    </div>
-                    <div class="compact-row">
-                        <span class="compact-label">Low</span>
-                        <span class="compact-value">{low}</span>
-                    </div>
-                    <div class="compact-row">
-                        <span class="compact-label">Vol (BTC)</span>
-                        <span class="compact-value">{volume}</span>
-                    </div>
-                    <div class="compact-row">
-                        <span class="compact-label">Δ 1D Vol</span>
-                        <span class="compact-value">{volchange}</span>
-                    </div>
-                </div>
-            """,
-            unsafe_allow_html=True
-        )
-    else:
-        st.sidebar.warning("Price data unavailable.")
-    return base

@@ -1350,6 +1350,50 @@ def prob_itm_all(instrument_name: str) -> tuple[dict | None, str | None]:
     }
     return out, None
 
+# async def prob(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     """
+#     /prob [INSTRUMENT_NAME] - Compute ITM probability using BS + local Surf + MC
+#     Example: /prob BTC-31DEC25-60000-C
+#     """
+#     if len(context.args) < 1:
+#         await update.message.reply_text("Usage: /prob BTC-31DEC25-60000-C")
+#         return
+#     instrument_name = context.args[0].upper()
+#     try:
+#         res, err = prob_itm_all(instrument_name)
+#         if err:
+#             await update.message.reply_text(err)
+#             return
+#         S = res["inputs"]["S"]; K = res["inputs"]["K"]; T = res["inputs"]["T_years"]
+#         typ = res["inputs"]["type"]; r  = res["inputs"]["r"]
+#         iv = res["inputs"]["iv"]
+#         pbs = res["probs"]["bs"]; psurf = res["probs"]["surface"]; pmc = res["probs"]["mc"]; pen = res["probs"]["ensemble"]
+#         w_bs = res["weights"]["bs"]; w_surf = res["weights"]["surface"]; w_mc = res["weights"]["mc"]
+
+#         lines = [
+#             _kv("Spot S (USD)",  fnum(S)),
+#             _kv("Strike K",      fnum(K)),
+#             _kv("Type",          typ.upper(), vw=12),
+#             _kv("T (years)",     f"{T:.4f}"),
+#             _kv("Risk-free r",   pct(r)),
+#             _kv("Market IV",     "n/a" if iv is None else pct(iv)),
+#             "",
+#             _kv("BS (IV)",             pct(pbs)),
+#             _kv("Surf (local fit)",    pct(psurf) if psurf is not None else "n/a"),
+#             _kv("MC (GBM)",            pct(pmc) if pmc is not None else "n/a"),
+#             "-" * 50,
+#             _kv("Ensemble",      pct(pen)),
+#             _kv("Weights",       "", lw=18, vw=12),
+#             _kv("  BS",          f"{w_bs:.2f}", lw=18, vw=12),
+#             _kv("  Surf",        f"{w_surf:.2f}", lw=18, vw=12),
+#             _kv("  MC",          f"{w_mc:.2f}", lw=18, vw=12),
+#         ]
+#         msg = f"*{instrument_name} — ITM Probability*\n" + "```\n" + "\n".join(lines) + "\n```"
+#         await update.message.reply_text(msg, parse_mode="Markdown")
+#     except Exception as e:
+#         logging.exception(e)
+#         await update.message.reply_text("Error computing ITM probability.")
+
 async def prob(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     /prob [INSTRUMENT_NAME] - Compute ITM probability using BS + local Surf + MC
@@ -1360,19 +1404,58 @@ async def prob(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     instrument_name = context.args[0].upper()
     try:
-        res, err = prob_itm_all(instrument_name)
+        _, _, msg, is_error = get_prob(instrument_name)
+        await update.message.reply_text(msg, parse_mode="Markdown")
+    except Exception as e:
+        logging.exception(f"Error in deribit prob: {e}")
+        await update.message.reply_text("Error computing ITM probability.")
+
+def get_prob(inst_name: str) -> tuple[dict, dict, str, bool]:
+    """
+    /prob [INSTRUMENT_NAME] - Compute ITM probability using BS + local Surf + MC
+    Example: /prob BTC-31DEC25-60000-C
+    """
+    try:
+        res, err = prob_itm_all(inst_name)
         if err:
-            await update.message.reply_text(err)
-            return
+            logging.warning(f"Error in deribit get_prob: {err}")
+            return {}, {}, err, True
         S = res["inputs"]["S"]; K = res["inputs"]["K"]; T = res["inputs"]["T_years"]
         typ = res["inputs"]["type"]; r  = res["inputs"]["r"]
         iv = res["inputs"]["iv"]
         pbs = res["probs"]["bs"]; psurf = res["probs"]["surface"]; pmc = res["probs"]["mc"]; pen = res["probs"]["ensemble"]
         w_bs = res["weights"]["bs"]; w_surf = res["weights"]["surface"]; w_mc = res["weights"]["mc"]
 
-        def pct(x): return "n/a" if x is None else f"{x*100:.2f}%"
-        def fnum(x, n=2): return f"{x:,.{n}f}"
-
+        raw = {
+            PRETTY_PARAMETERS.SPOT_PRICE.value: S,
+            PRETTY_PARAMETERS.STRIKE_PRICE.value: K,
+            PRETTY_PARAMETERS.OPTION_TYPE.value: typ.upper(),
+            PRETTY_PARAMETERS.YEARS_TO_EXPIRY.value: round(T, 4),
+            PRETTY_PARAMETERS.INTEREST_RATE.value: r,
+            PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value: iv,
+            PRETTY_PARAMETERS.BS_IMPLIED_VOLATILITY.value: pbs,
+            PRETTY_PARAMETERS.LOCAL_SURFACE_IV_FIT.value: psurf,
+            "MC (GBM)": pmc,
+            "Ensemble": pen,
+            "BS weight": round(w_bs, 2),
+            "Surf Weight": round(w_surf, 2),
+            "MC Weight": round(w_mc, 2)
+        }
+        processed = {
+            PRETTY_PARAMETERS.SPOT_PRICE.value: fnum(S),
+            PRETTY_PARAMETERS.STRIKE_PRICE.value: fnum(K),
+            PRETTY_PARAMETERS.OPTION_TYPE.value: typ.upper(),
+            PRETTY_PARAMETERS.YEARS_TO_EXPIRY.value: round(T, 4),
+            PRETTY_PARAMETERS.INTEREST_RATE.value: pct(r),
+            PRETTY_PARAMETERS.IMPLIED_VOLATILITY.value: "n/a" if iv is None else pct(iv),
+            PRETTY_PARAMETERS.BS_IMPLIED_VOLATILITY.value: pct(pbs),
+            PRETTY_PARAMETERS.LOCAL_SURFACE_IV_FIT.value: pct(psurf) if psurf is not None else "n/a",
+            "MC (GBM)": pct(pmc) if pmc is not None else "n/a",
+            "Ensemble": pct(pen),
+            "BS weight": round(w_bs, 2),
+            "Surf Weight": round(w_surf, 2),
+            "MC Weight": round(w_mc, 2)
+        }
         lines = [
             _kv("Spot S (USD)",  fnum(S)),
             _kv("Strike K",      fnum(K)),
@@ -1391,11 +1474,11 @@ async def prob(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             _kv("  Surf",        f"{w_surf:.2f}", lw=18, vw=12),
             _kv("  MC",          f"{w_mc:.2f}", lw=18, vw=12),
         ]
-        msg = f"*{instrument_name} — ITM Probability*\n" + "```\n" + "\n".join(lines) + "\n```"
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        msg = f"*{inst_name} — ITM Probability*\n" + "```\n" + "\n".join(lines) + "\n```"
+        return raw, processed, msg, False
     except Exception as e:
-        logging.exception(e)
-        await update.message.reply_text("Error computing ITM probability.")
+        logging.exception(f"Error in deribit get_prob: {e}")
+        return {}, {}, "Error computing ITM probability.", True
 
 # === /misprice ===
 # === /misprice [BTC|ETH] [Nexp=3] [model=har|garch] [band=0.30] ===
@@ -1487,7 +1570,7 @@ async def misprice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         out_lines.append(f"{exp_dt.strftime('%d%b%y').upper():<9} {dte:>3} {len(rows):>4} {iv_mean*100:>6.2f}%  {over_s:>30}  {under_s:>30}")
 
     out_lines.append("```")
-    await update.message.reply_text("\n".join(out_lines), parse_mode="Markdown")
+    await update.message.reply_text("\n".join(out_lines), parse_mode="MarkdownV2")
 
 # === GLOBAL ERROR HANDLER ===
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:

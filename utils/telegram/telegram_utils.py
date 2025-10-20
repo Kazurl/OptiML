@@ -9,6 +9,7 @@ from app.pages.crypto_viewer.deribit import (
     get_greeks,
     get_price,
     get_option,
+    get_prob,
     _get_all_runs,
     basis,
     option,
@@ -24,6 +25,11 @@ from app.pages.crypto_viewer.deribit import (
 from utils.enums_option import (
     PRETTY_RUNS_TYPE,
 )
+
+""" todo: delete when done
+export PYTHONPATH=$(pwd)
+python utils/telegram/telegram_utils.py
+"""
 
 load_dotenv()
 
@@ -167,6 +173,24 @@ def show_price(base: str) -> list[str] | None:
         return data
     except Exception as e:
         print(f"Error fetching price for {base} in telegram_utils.show_price: {e}")
+        return None
+    
+def show_prob(inst_name: str) -> dict | None:
+    try:
+        raw_data, processed_data, msg, is_error = get_prob(inst_name)
+        if is_error:
+            raise ValueError(msg)
+        
+        payload = {
+            "chat_id": TELEGRAM_TEST_CHAT_ID,  # todo: change to list of chat ids if multiple groups
+            "text": msg,
+            "parse_mode": "markdown"
+        }
+        res = requests.post(TELEGRAM_BOT_URL, data=payload, timeout=10)  # todo: change to list of chat ids if multiple groups
+        res.raise_for_status()
+        return processed_data
+    except Exception as e:
+        print(f"Error fetching price for {inst_name} in telegram_utils.show_price: {e}")
         return None
     
 if __name__ == "__main__":
