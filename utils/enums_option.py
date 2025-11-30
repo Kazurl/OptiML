@@ -17,6 +17,11 @@ class OPTION_TYPE(Enum):
     PUT = "put option"
 
 
+class OPTION_CONSTANTS(Enum):
+    SIGMA_LOWER = 1e-6
+    SIGMA_UPPER = 5.0
+
+
 class PARAMETERS(Enum):
     STOCK_PRICE = "stock_price"
     STRIKE_PRICE = "strike_price"

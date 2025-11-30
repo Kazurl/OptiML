@@ -1,35 +1,39 @@
-# Python related
-__pycache__/
+# Byte-code files
 *.pyc
 *.pyo
-*.pyd
-*.egg-info/
-dist/
-build/
+__pycache__/
+
+# Environments
 .env
 venv/
-.venv/
-venv_0.1/
+env/
+*venv*/
+.python-version # Example for pyenv
 
-# db
-*.db
-
-# vscode
+# IDEs and OS
 .vscode/
-
-# Docker
-docker-compose.override.yml
-
-# jupyter notebooks
-.ipynb_checkpoints
-
-# Logs and temps
-*.log
-*.tmp
-
-# Sys files
+.idea/
 .DS_Store
 Thumbs.db
 
-# Extras
-tasks.txt
+# Project-specific caches and build artifacts
+*.egg-info/
+dist/
+build/
+*.log
+*.tmp
+htmlcov/
+.tox/
+.coverage
+.pytest_cache/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Poetry
+poetry.lock
+poetry.toml
+
+# db files
+*.sqlite3
+*.db
