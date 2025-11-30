@@ -1000,7 +1000,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "/allrunsexp [BTC|ETH] [C|P] [T|F] - All runs for all expiries (Fridays only by default)\n"
         "/prob  <code>BTC-31DEC25-60000-C</code> – ITM Probability\n"
         "/misprice [BTC|ETH] [Nexp] [har|garch] [band] – IV surface vs RV forecast; flags top mispricings by VRP z‑score\n"
-
+        "\n"
+        "=== Account related commands (requires API keys) ===\n"
+        "/connect_live - Connect to the Deribit live account\n"
+        "/connect_test - Connect to the Deribit test account\n"
+        "/disconnect - Disconnect from the Deribit account\n"
+        "/account_summary [BTC|ETH] [extended=T|F]' - Fetch and display account summary\n"
+        "/trade [B|S] [BTC-31DEC25-60000-C] [amount] [price]' [type=limit|market]' [time_in_force=good_til_cancelled|fill_or_kill|immediate_or_cancel]' - Initiate a trade\n"
+        "/confirm_trade - Confirm and execute the pending trade\n"
     )
     await update.message.reply_text(text, parse_mode="HTML")
     print(f"chat_id: {chat_id}")  # todo: remove when done

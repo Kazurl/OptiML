@@ -28,8 +28,13 @@ from app.pages.crypto_viewer.deribit import (
     misprice,
     error_handler
 )
-from utils.enums_option import (
-    PRETTY_RUNS_TYPE,
+from app.pages.crypto_viewer.trading import (
+    connect_live,
+    connect_test,
+    disconnect_deribit,
+    trade,
+    confirm_trade,
+    account_summary,
 )
 
 """ todo: delete when done
@@ -58,6 +63,15 @@ def start_bot() -> Application:
     app.add_handler(CommandHandler("allrunsexp", allrunsexp))
     app.add_handler(CommandHandler("prob", prob))
     app.add_handler(CommandHandler("misprice", misprice))
+    # Account related commands
+    app.add_handler(CommandHandler("connect_live", connect_live))
+    app.add_handler(CommandHandler("connect_test", connect_test))
+    app.add_handler(CommandHandler("disconnect", disconnect_deribit))
+    app.add_handler(CommandHandler("account_summary", account_summary))
+    app.add_handler(CommandHandler("trade", trade))
+    app.add_handler(CommandHandler("confirm_trade", confirm_trade))
+    app.add_handler(CommandHandler("account_summary", account_summary))
+    # Error handlers
     app.add_error_handler(error_handler)
 
     print("Deribit bot running... Ctrl+C to stop.")

@@ -7,15 +7,20 @@ It provides helper methods for common trading operations and is designed to be u
 import asyncio
 import logging
 import time
-import uuid
+import os
+from dotenv import load_dotenv
 from typing import Any, Dict, Optional
 
 import httpx
+
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+DERIBIT_API_BASE = os.getenv("DERIBIT_API_BASE")
+DERIBIT_API_TEST = os.getenv("DERIBIT_API_TEST")
 
 class DeribitError(Exception):
     """Base exception for Deribit client errors."""
@@ -50,13 +55,13 @@ class DeribitTrading:
         self,
         client_id: str,
         client_secret: str,
-        base_url: str = "https://www.deribit.com/api/v2",
+        is_test: bool = True,
         client: Optional[httpx.AsyncClient] = None,
         base_timeout: float = 10.0
     ):
         self.client_id = client_id
         self.client_secret = client_secret
-        self.base_url = base_url
+        self.base_url = DERIBIT_API_TEST if is_test else DERIBIT_API_BASE
         self.client = client or httpx.AsyncClient(
             timeout=httpx.Timeout(base_timeout, connect=5.0, read=15.0, write=10.0)
         )
@@ -81,9 +86,9 @@ class DeribitTrading:
             return
 
         auth_params = {
-            "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
+            "grant_type": "client_credentials",
         }
         try:
             response = await self.client.get(
@@ -229,7 +234,7 @@ class DeribitTrading:
         """
         Place a buy order.
         :param instrument_name: The name of the instrument to buy.
-        :param amount: Amount of contracts to buy.
+        :param amount: Contract size to buy (underlying base currency coin).
         :param kwargs: Optional order parameters (e.g., price, type, time_in_force).
         """
         params = {"instrument_name": instrument_name, "amount": amount}
@@ -261,6 +266,9 @@ class DeribitTrading:
         """
         Get account summary.
         """
+        currency = currency.upper()
+        if currency not in ["BTC", "ETH"]:
+            currency = "BTC"
         return await self.request("private/get_account_summary", {"currency": currency, "extended": extended})
 
     async def get_positions(self, currency: str, kind: str = "option") -> Dict[str, Any]:
